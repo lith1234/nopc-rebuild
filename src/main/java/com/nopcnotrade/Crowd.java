@@ -1,5 +1,11 @@
 package com.nopcnotrade;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.ItemParticleOption;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -49,22 +55,38 @@ public class Crowd {
     static long lastCrowdLine = -10000;                        // game time
     static final int SPEECH_GAP = 12;                          // silence between two lines (ticks)
 
-    // One floating text display per speaking villager. It follows the villager's head
-    // and stays visible for the duration of the spoken line.
-    private static final class ActiveSpeechBubble {
+    // Short-lived floating emotes: a vanilla Display entity (item icon or text) that follows the
+    // speaking villager's head, pops in, rises slowly and shrinks away. Works with vanilla clients.
+    // If the display entity cannot be spawned, falls back to the old particle burst.
+    static final int EMOTE_LIFE = 44;
+    private static final class ActiveEmote {
         final Villager villager;
+        final ParticleOptions fallback;
         final UUID displayId;
-        final long expiresAt;
-        final long startedAt;
+        final String look;      // "item" or "text"
+        final String data;      // NBT fragment for the display
+        final float scale;
+        final long startedAt, expiresAt;
+        long nextPulse;
+        int phase = 0;          // 0 = spawned, 1 = popped in, 2 = shrinking
 
-        ActiveSpeechBubble(Villager villager, UUID displayId, long startedAt, long expiresAt) {
+        ActiveEmote(Villager villager, ParticleOptions fallback, UUID displayId, String look, String data,
+                    float scale, long startTick) {
             this.villager = villager;
+            this.fallback = fallback;
             this.displayId = displayId;
-            this.startedAt = startedAt;
-            this.expiresAt = expiresAt;
+            this.look = look;
+            this.data = data;
+            this.scale = scale;
+            this.startedAt = startTick;
+            this.expiresAt = startTick + EMOTE_LIFE;
+            this.nextPulse = startTick;
         }
     }
-    static final Map<UUID, ActiveSpeechBubble> speechBubbles = new HashMap<>();
+    static final Map<UUID, ActiveEmote> emotes = new HashMap<>();
+
+    static final ChatFormatting[] COLORS = {ChatFormatting.GREEN, ChatFormatting.AQUA, ChatFormatting.YELLOW, ChatFormatting.GOLD,
+            ChatFormatting.LIGHT_PURPLE, ChatFormatting.RED, ChatFormatting.BLUE, ChatFormatting.DARK_AQUA};
 
     static boolean isTarget(ServerPlayer p) {
         return p.getName().getString().equalsIgnoreCase(Cfg.d.targetUsername.trim());
@@ -74,7 +96,7 @@ public class Crowd {
     /** Runs every tick for speech/emotes; the crowd logic itself runs every 0.5s. Movement is vanilla Brain only. */
     public static void tick(MinecraftServer s) {
         int tc = s.getTickCount();
-        tickSpeechBubbles();
+        tickEmotes();
         processSpeech(tc);   // every tick, so replies to the player are not delayed
         if (tc % 10 != 0) return;
 
@@ -438,9 +460,34 @@ public class Crowd {
         processSpeech(lv.getServer().getTickCount());
     }
 
-    private static String snbtString(String value) {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\n", "\\n").replace("\r", "\\r") + "\"";
+    private static ParticleOptions fallbackParticle(String key) {
+        return switch (key) {
+            case "shout", "trade", "flee" -> ParticleTypes.ANGRY_VILLAGER;
+            case "recognize" -> ParticleTypes.NOTE;
+            case "chant" -> ParticleTypes.CRIT;
+            case "emerald" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.EMERALD));
+            case "furnace" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.FURNACE));
+            case "toaster" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(NoPcNoTrade.TOASTER));
+            case "dirt" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.DIRT));
+            case "coal" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.COAL));
+            case "redstone" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.REDSTONE));
+            case "iron_ingot" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.IRON_INGOT));
+            case "diamond" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.DIAMOND));
+            default -> ParticleTypes.HAPPY_VILLAGER;
+        };
+    }
+
+    private static String itemData(String id) {
+        return "item:{id:\"" + id + "\",count:1},item_display:\"gui\"";
+    }
+
+    private static String textData(String text, String color) {
+        return "text:{text:\"" + text + "\",color:\"" + color + "\",bold:true},background:0,shadow:1b,alignment:\"center\"";
+    }
+
+    private static String tf(float scale, float y) {
+        return "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,"
+                + y + "f,0f],scale:[" + scale + "f," + scale + "f," + scale + "f]}";
     }
 
     private static String intArray(UUID id) {
@@ -454,75 +501,125 @@ public class Crowd {
             server.getCommands().performPrefixedCommand(
                     server.createCommandSourceStack().withLevel(lv).withSuppressedOutput(), command);
         } catch (Exception ignored) {
-            // A speech bubble is cosmetic and must never interrupt gameplay.
+            // Emotes are cosmetic: never let them break the game.
         }
     }
 
-    /** Shows the actual spoken sentence above the villager instead of sending it to chat. */
-    static void showSpeechBubble(ServerLevel lv, Villager villager, String key, String text) {
-        ActiveSpeechBubble old = speechBubbles.remove(villager.getUUID());
+    static void startEmote(ServerLevel lv, Villager villager, String key) {
+        // Only one emote per villager at a time.
+        ActiveEmote old = emotes.remove(villager.getUUID());
         if (old != null) {
-            Entity previous = lv.getEntity(old.displayId);
-            if (previous != null) previous.discard();
+            Entity e = lv.getEntity(old.displayId);
+            if (e != null) e.discard();
+        }
+
+        String look, data;
+        float scale;
+        switch (key) {
+            case "shout" -> { look = "text"; data = textData("!!", "red"); scale = 1.5f; }
+            case "trade" -> { look = "text"; data = textData("NO PC!", "red"); scale = 1.0f; }
+            case "recognize" -> { look = "text"; data = textData("\u266A", "aqua"); scale = 1.8f; }
+            case "chant" -> { look = "text"; data = textData("RTX", "green"); scale = 1.2f; }
+            case "spot" -> { look = "text"; data = textData("?", "yellow"); scale = 1.6f; }
+            case "ask" -> { look = "text"; data = textData("?", "aqua"); scale = 1.6f; }
+            case "answer" -> { look = "text"; data = textData("!", "green"); scale = 1.5f; }
+            case "flee" -> { look = "text"; data = textData("STOP!", "red"); scale = 1.1f; }
+            case "emerald" -> { look = "item"; data = itemData("minecraft:emerald"); scale = 0.7f; }
+            case "furnace" -> { look = "item"; data = itemData("minecraft:furnace"); scale = 0.7f; }
+            case "toaster" -> { look = "item"; data = itemData("nopcnotrade:toaster"); scale = 0.8f; }
+            case "dirt" -> { look = "item"; data = itemData("minecraft:dirt"); scale = 0.7f; }
+            case "coal" -> { look = "item"; data = itemData("minecraft:coal"); scale = 0.7f; }
+            case "redstone" -> { look = "item"; data = itemData("minecraft:redstone"); scale = 0.7f; }
+            case "iron_ingot" -> { look = "item"; data = itemData("minecraft:iron_ingot"); scale = 0.7f; }
+            case "diamond" -> { look = "item"; data = itemData("minecraft:diamond"); scale = 0.7f; }
+            default -> { look = "text"; data = textData("!", "yellow"); scale = 1.5f; }
         }
 
         UUID displayId = UUID.randomUUID();
-        double x = villager.getX();
-        double y = villager.getY() + villager.getBbHeight() + 0.55;
-        double z = villager.getZ();
-        String nbt = "{UUID:" + intArray(displayId) + ",Tags:[\"nopc_speech\"],billboard:\"center\","
-                + "text:{text:" + snbtString(text) + ",color:\"white\",bold:true},"
-                + "background:1073741824,shadow:1b,alignment:\"center\",line_width:220,text_opacity:255b}";
-        runCommand(lv, String.format(Locale.ROOT,
-                "summon minecraft:text_display %.3f %.3f %.3f %s", x, y, z, nbt));
-
         long now = lv.getGameTime();
-        long duration = Math.max(30, Voices.durationTicks(key, text)) + 8L;
-        speechBubbles.put(villager.getUUID(),
-                new ActiveSpeechBubble(villager, displayId, now, now + duration));
+        double x = villager.getX();
+        double y = villager.getY() + villager.getBbHeight() + 0.45;
+        double z = villager.getZ();
+        String type = look.equals("item") ? "minecraft:item_display" : "minecraft:text_display";
+        String nbt = "{UUID:" + intArray(displayId) + ",Tags:[\"nopc_emote\"],billboard:\"center\","
+                + "teleport_duration:3,brightness:{sky:15,block:15}," + data + "," + tf(0.01f, 0f) + "}";
+        runCommand(lv, String.format(Locale.ROOT, "summon %s %.3f %.3f %.3f %s", type, x, y, z, nbt));
+
+        emotes.put(villager.getUUID(),
+                new ActiveEmote(villager, fallbackParticle(key), displayId, look, data, scale, now));
     }
 
-    /** Keeps each speech bubble attached to its villager and removes it when the line finishes. */
-    static void tickSpeechBubbles() {
-        for (var it = speechBubbles.entrySet().iterator(); it.hasNext();) {
-            ActiveSpeechBubble bubble = it.next().getValue();
-            Villager villager = bubble.villager;
+    /** Keeps each emote glued above its villager's head and plays pop-in / float / shrink animations. */
+    static void tickEmotes() {
+        for (var it = emotes.entrySet().iterator(); it.hasNext();) {
+            var entry = it.next();
+            ActiveEmote emote = entry.getValue();
+            Villager villager = emote.villager;
             if (!villager.isAlive() || !(villager.level() instanceof ServerLevel lv)) {
                 it.remove();
                 continue;
             }
-
-            Entity display = lv.getEntity(bubble.displayId);
             long now = lv.getGameTime();
-            if (now >= bubble.expiresAt || (display == null && now - bubble.startedAt > 5)) {
+            Entity display = lv.getEntity(emote.displayId);
+
+            if (now >= emote.expiresAt) {
                 if (display != null) display.discard();
                 it.remove();
                 continue;
             }
-            if (display != null) {
-                display.setPos(villager.getX(),
-                        villager.getY() + villager.getBbHeight() + 0.55,
-                        villager.getZ());
+
+            double x = villager.getX();
+            double y = villager.getY() + villager.getBbHeight() + 0.45;
+            double z = villager.getZ();
+
+            if (display == null) {
+                // The display entity did not appear: use the old particle burst instead.
+                if (now - emote.startedAt >= 2 && now >= emote.nextPulse) {
+                    lv.sendParticles(emote.fallback, x, y + 0.03, z, 2, 0.09, 0.08, 0.09, 0.015);
+                    emote.nextPulse = now + 3;
+                }
+                continue;
+            }
+
+            display.setPos(x, y, z);
+            String sel = emote.displayId.toString();
+
+            if (emote.phase == 0 && now - emote.startedAt >= 1) {
+                // Pop in and float up.
+                runCommand(lv, "data merge entity " + sel + " {start_interpolation:0,interpolation_duration:6,"
+                        + tf(emote.scale, 0.18f) + "}");
+                emote.phase = 1;
+            } else if (emote.phase == 1 && emote.expiresAt - now <= 6) {
+                // Shrink away.
+                runCommand(lv, "data merge entity " + sel + " {start_interpolation:0,interpolation_duration:6,"
+                        + tf(0.01f, 0.35f) + "}");
+                emote.phase = 2;
             }
         }
     }
 
-    /** Removes leftover speech displays when the server stops. */
+    /** Removes any leftover emote display entities (e.g. when the server stops mid-emote). */
     public static void cleanup(MinecraftServer s) {
-        speechBubbles.clear();
+        emotes.clear();
         try {
             s.getCommands().performPrefixedCommand(
-                    s.createCommandSourceStack().withSuppressedOutput(), "kill @e[tag=nopc_speech]");
+                    s.createCommandSourceStack().withSuppressedOutput(), "kill @e[tag=nopc_emote]");
         } catch (Exception ignored) {
         }
     }
 
     static void playSpeechNow(ServerLevel lv, Villager villager, String key, String text) {
-        showSpeechBubble(lv, villager, key, text);
+        startEmote(lv, villager, key);
         boolean calmLine = key.equals("spot") || key.equals("recognize") || key.equals("shout") || key.equals("chant")
                 || key.equals("ask") || key.equals("answer");
         if (!calmLine) villager.setUnhappyCounter(40);               // shakes his head
         if (key.equals("shout") || key.equals("chant") || key.equals("flee")) hop(villager);
+        int n = Math.floorMod(villager.getUUID().hashCode(), 100);
+        MutableComponent message = Component.literal("[Villager #" + n + "]: ")
+                .withStyle(COLORS[n % COLORS.length], ChatFormatting.BOLD)
+                .append(Component.literal(text).withStyle(ChatFormatting.WHITE));
+        for (ServerPlayer sp : lv.players())
+            if (sp.distanceToSqr(villager) < 1024) sp.sendSystemMessage(message);
 
         SoundEvent voice = Voices.find(key, text);
         if (voice != null) lv.playSound(null, villager.blockPosition(), voice, SoundSource.VOICE, 2f, 1f);
