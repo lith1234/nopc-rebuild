@@ -587,9 +587,17 @@ public class Crowd {
 
     static void playSpeechNow(ServerLevel lv, Villager villager, String key, String text) {
         startEmote(lv, villager, key, text);
+
+        // Trigger the vanilla entity swing event as a synchronized gesture. EMF exposes this
+        // as swing_progress to CEM animations, so Fresh Animations can keep its own model
+        // while the villager punctuates each spoken line with an arm movement.
+        InteractionHand gestureHand = ((villager.getUUID().getLeastSignificantBits()
+                ^ key.hashCode()) & 1L) == 0L ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+        villager.swing(gestureHand);
+
         boolean calmLine = key.equals("spot") || key.equals("recognize") || key.equals("shout") || key.equals("chant")
                 || key.equals("ask") || key.equals("answer");
-        if (!calmLine) villager.setUnhappyCounter(40);               // shakes his head
+        if (!calmLine) villager.setUnhappyCounter(40); // angry / refusal head shake
         if (key.equals("shout") || key.equals("chant") || key.equals("flee")) hop(villager);
 
         SoundEvent voice = Voices.find(key, text);
