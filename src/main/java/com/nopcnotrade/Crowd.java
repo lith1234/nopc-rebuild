@@ -457,14 +457,8 @@ public class Crowd {
             case "shout", "trade", "flee" -> ParticleTypes.ANGRY_VILLAGER;
             case "recognize" -> ParticleTypes.NOTE;
             case "chant" -> ParticleTypes.CRIT;
-            case "emerald" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.EMERALD));
-            case "furnace" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.FURNACE));
-            case "toaster" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(NoPcNoTrade.TOASTER));
-            case "dirt" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.DIRT));
-            case "coal" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.COAL));
-            case "redstone" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.REDSTONE));
-            case "iron_ingot" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.IRON_INGOT));
-            case "diamond" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.DIAMOND));
+            case "emerald", "furnace", "toaster", "dirt", "coal", "redstone", "iron_ingot", "diamond" ->
+                    ParticleTypes.HAPPY_VILLAGER;
             default -> ParticleTypes.HAPPY_VILLAGER;
         };
     }
@@ -506,43 +500,32 @@ public class Crowd {
         runCommand(lv, "kill @e[tag=" + tag + ",limit=1]");
     }
 
-    static void startEmote(ServerLevel lv, Villager villager, String key) {
-        // Only one emote per villager at a time.
+    static void startEmote(ServerLevel lv, Villager villager, String key, String spokenText) {
+        // Show the exact dialogue line above the villager instead of Claude's symbolic/item emotes.
         ActiveEmote old = emotes.remove(villager.getUUID());
         if (old != null) removeEmote(lv, old.displayTag);
 
-        String look, data;
-        float scale;
-        switch (key) {
-            case "shout" -> { look = "text"; data = textData("!!", "red"); scale = 1.5f; }
-            case "trade" -> { look = "text"; data = textData("NO PC!", "red"); scale = 1.0f; }
-            case "recognize" -> { look = "text"; data = textData("♪", "aqua"); scale = 1.8f; }
-            case "chant" -> { look = "text"; data = textData("RTX", "green"); scale = 1.2f; }
-            case "spot" -> { look = "text"; data = textData("!!", "red"); scale = 1.6f; }
-            case "ask" -> { look = "text"; data = textData("?", "aqua"); scale = 1.6f; }
-            case "answer" -> { look = "text"; data = textData("!", "green"); scale = 1.5f; }
-            case "flee" -> { look = "text"; data = textData("STOP!", "red"); scale = 1.1f; }
-            case "emerald" -> { look = "item"; data = itemData("minecraft:emerald"); scale = 0.7f; }
-            case "furnace" -> { look = "item"; data = itemData("minecraft:furnace"); scale = 0.7f; }
-            case "toaster" -> { look = "item"; data = itemData("nopcnotrade:toaster"); scale = 0.8f; }
-            case "dirt" -> { look = "item"; data = itemData("minecraft:dirt"); scale = 0.7f; }
-            case "coal" -> { look = "item"; data = itemData("minecraft:coal"); scale = 0.7f; }
-            case "redstone" -> { look = "item"; data = itemData("minecraft:redstone"); scale = 0.7f; }
-            case "iron_ingot" -> { look = "item"; data = itemData("minecraft:iron_ingot"); scale = 0.7f; }
-            case "diamond" -> { look = "item"; data = itemData("minecraft:diamond"); scale = 0.7f; }
-            default -> { look = "text"; data = textData("!", "yellow"); scale = 1.5f; }
-        }
+        String color = switch (key) {
+            case "shout", "trade", "flee" -> "red";
+            case "recognize", "spot", "ask" -> "aqua";
+            case "chant", "answer" -> "green";
+            default -> "yellow";
+        };
+        String visibleText = (spokenText == null || spokenText.isBlank()) ? "..." : spokenText;
+        float scale = visibleText.length() > 55 ? 0.62f
+                : visibleText.length() > 38 ? 0.75f
+                : visibleText.length() > 24 ? 0.9f : 1.1f;
+        String data = textData(visibleText, color);
 
         String displayTag = "nopc_emote_" + UUID.randomUUID().toString().replace("-", "");
         long now = lv.getGameTime();
         double x = villager.getX();
         double y = villager.getY() + villager.getBbHeight() + 0.45;
         double z = villager.getZ();
-        String type = look.equals("item") ? "minecraft:item_display" : "minecraft:text_display";
         String nbt = "{Tags:[\"nopc_emote\",\"" + displayTag + "\"],billboard:\"center\","
                 + "teleport_duration:3,brightness:{sky:15,block:15}," + data + "," + tf(0.01f, 0f) + "}";
         boolean spawned = runCommand(lv, String.format(Locale.ROOT,
-                "summon %s %.3f %.3f %.3f %s", type, x, y, z, nbt));
+                "summon minecraft:text_display %.3f %.3f %.3f %s", x, y, z, nbt));
 
         emotes.put(villager.getUUID(),
                 new ActiveEmote(villager, fallbackParticle(key), displayTag, scale, now, spawned));
@@ -614,7 +597,7 @@ public class Crowd {
     }
 
     static void playSpeechNow(ServerLevel lv, Villager villager, String key, String text) {
-        startEmote(lv, villager, key);
+        startEmote(lv, villager, key, text);
         boolean calmLine = key.equals("spot") || key.equals("recognize") || key.equals("shout") || key.equals("chant")
                 || key.equals("ask") || key.equals("answer");
         if (!calmLine) villager.setUnhappyCounter(40);               // shakes his head
