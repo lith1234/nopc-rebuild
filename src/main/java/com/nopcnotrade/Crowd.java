@@ -610,8 +610,8 @@ public class Crowd {
     }
 
     private static String snbtString(String value) {
-        return "\"" + value.replace("\\\\", "\\\\\\\\").replace("\"", "\\\\"")
-                .replace("\\n", "\\\\n").replace("\\r", "\\\\r") + "\"";
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r") + "\"";
     }
 
     /** Spawns a vanilla text display containing the complete spoken line. */
@@ -623,11 +623,11 @@ public class Crowd {
         }
 
         UUID displayId = UUID.randomUUID();
-        String componentJson = "{\\"text\\":" + snbtString(text)
-                + ",\\"color\\":\\"white\\",\\"bold\\":true}";
-        String nbt = "{UUID:" + intArray(displayId) + ",Tags:[\\"nopc_speech\\"],"
-                + "billboard:\\"center\\",text:" + snbtString(componentJson)
-                + ",background:1073741824,shadow:1b,alignment:\\"center\\","
+        String componentJson = "{\"text\":" + snbtString(text)
+                + ",\"color\":\"white\",\"bold\":true}";
+        String nbt = "{UUID:" + intArray(displayId) + ",Tags:[\"nopc_speech\"],"
+                + "billboard:\"center\",text:" + snbtString(componentJson)
+                + ",background:1073741824,shadow:1b,alignment:\"center\","
                 + "line_width:240,text_opacity:255b}";
         runCommand(lv, String.format(Locale.ROOT,
                 "summon minecraft:text_display %.3f %.3f %.3f %s",
