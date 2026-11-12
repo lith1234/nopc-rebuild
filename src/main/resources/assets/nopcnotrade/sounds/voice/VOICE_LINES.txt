@@ -62,3 +62,21 @@ flee_2.ogg  ->  WHERE ARE YOU GOING?!
 flee_3.ogg  ->  GET BACK HERE!
 flee_4.ogg  ->  WE'RE NOT DONE YET!
 flee_5.ogg  ->  DON'T RUN FROM US!
+ask_1.ogg  ->  HE OWES US A COMPUTER, RIGHT?
+answer_1.ogg  ->  YES, HE DOES!
+ask_2.ogg  ->  IS THAT REALLY THE PC GUY?
+answer_2.ogg  ->  YES, HE IS! LOOK AT HIM!
+ask_3.ogg  ->  HAS HE EVER BOUGHT US A PC?
+answer_3.ogg  ->  NOT ONCE!
+ask_4.ogg  ->  HOW LONG HAVE WE BEEN WAITING?
+answer_4.ogg  ->  SIX LONG MONTHS!
+ask_5.ogg  ->  WHAT DO WE WANT?
+answer_5.ogg  ->  COMPUTERS! WHEN? NOW!
+ask_6.ogg  ->  DOES HE EVEN HAVE AN RTX 5090?
+answer_6.ogg  ->  I DOUBT IT. HE PROBABLY HAS A TOASTER!
+ask_7.ogg  ->  SHOULD WE TRADE WITH HIM?
+answer_7.ogg  ->  NO PC, NO TRADE!
+ask_8.ogg  ->  WILL HE EVER PAY UP?
+answer_8.ogg  ->  NOT IF WE LET HIM LEAVE!
+ask_9.ogg  ->  CAN WE RUN SHADERS WITHOUT A PC?
+answer_9.ogg  ->  NO, THAT'S THE WHOLE PROBLEM!

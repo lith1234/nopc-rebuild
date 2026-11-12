@@ -22,6 +22,13 @@ public class Talk {
         // Protest script (added at the end so the clip numbers of the lines above never change).
         d("spot", "WAIT... IS THAT THE PC GUY?", "HEY... I KNOW YOU!", "HOLD ON... IT'S HIM!");
         d("flee", "DON'T WALK AWAY!", "WHERE ARE YOU GOING?!", "GET BACK HERE!", "WE'RE NOT DONE YET!", "DON'T RUN FROM US!");
+        // Conversations: one villager asks, another answers. ask_N always goes with answer_N.
+        d("ask", "HE OWES US A COMPUTER, RIGHT?", "IS THAT REALLY THE PC GUY?", "HAS HE EVER BOUGHT US A PC?",
+                "HOW LONG HAVE WE BEEN WAITING?", "WHAT DO WE WANT?", "DOES HE EVEN HAVE AN RTX 5090?",
+                "SHOULD WE TRADE WITH HIM?", "WILL HE EVER PAY UP?", "CAN WE RUN SHADERS WITHOUT A PC?");
+        d("answer", "YES, HE DOES!", "YES, HE IS! LOOK AT HIM!", "NOT ONCE!",
+                "SIX LONG MONTHS!", "COMPUTERS! WHEN? NOW!", "I DOUBT IT. HE PROBABLY HAS A TOASTER!",
+                "NO PC, NO TRADE!", "NOT IF WE LET HIM LEAVE!", "NO, THAT'S THE WHOLE PROBLEM!");
     }
 
     public static List<String> lines(String key) {

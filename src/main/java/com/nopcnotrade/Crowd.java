@@ -44,7 +44,12 @@ public class Crowd {
 
     // All dialogue goes through this one queue, so only one villager speaks at a time.
     // level 0 = ambient chatter, 1 = story script, 2 = direct reaction to the player (jumps the queue).
-    private record QueuedSpeech(Villager speaker, String key, String text, int level) {}
+    private record QueuedSpeech(Villager speaker, String key, String text, int level,
+                                Villager replier, String replyKey, String replyText) {
+        QueuedSpeech(Villager speaker, String key, String text, int level) {
+            this(speaker, key, text, level, null, null, null);
+        }
+    }
     static final Deque<QueuedSpeech> speechQueue = new ArrayDeque<>();
     static long nextSpeechTick = 0, speechStartTick = -1000;   // server ticks
     static long lastCrowdLine = -10000;                        // game time
@@ -240,32 +245,41 @@ public class Crowd {
             lastFleeLine = now;
             lastCrowdLine = now;
             Villager shouter = crowd.get(0);
-            queueSpeech(shouter, "flee", Talk.pick("flee", lv.random), 2);
+            queueSpeech(shouter, "flee", pickUnique(lv, "flee"), 2);
             processSpeech(tc);
         }
 
-        // 6) Protest lines, strictly one villager at a time: first each villager reacts once, then chants.
+        // 6) Protest lines, strictly one villager at a time and never the same sentence twice:
+        //    first each villager reacts once, then they alternate chants, question/answer pairs and comments.
         if (phase == Phase.PROTEST && sec && !crowd.isEmpty() && speechIdle(tc)
                 && now - lastCrowdLine >= Cfg.d.secondsBetweenCrowdLines * 20L) {
             Villager who = null;
-            String key = "recognize";
             for (Villager v : crowd)
                 if (arrived.contains(v.getUUID()) && !reacted.contains(v.getUUID())) { who = v; break; }
+            boolean done = false;
             if (who != null) {
                 reacted.add(who.getUUID());
+                sayText(lv, who, "recognize", pickUnique(lv, "recognize"));
+                done = true;
             } else {
+                int turn = chantTurn++ % 3;
                 who = crowd.get(lv.random.nextInt(crowd.size()));
-                key = (chantTurn++ % 2 == 0) ? "chant" : "recognize";
+                if (turn == 1 && crowd.size() >= 2) {
+                    String[] ex = pickExchange(lv);
+                    if (ex != null) {
+                        Villager other = who;
+                        for (int tries = 0; tries < 8 && other == who; tries++)
+                            other = crowd.get(lv.random.nextInt(crowd.size()));
+                        if (other != who) {
+                            queueExchange(who, ex[0], other, ex[1]);
+                            done = true;
+                        }
+                    }
+                }
+                if (!done) sayText(lv, who, turn == 0 ? "chant" : "recognize",
+                        pickUnique(lv, turn == 0 ? "chant" : "recognize"));
             }
-            String text = pickLimited(lv, key);
-            if (text == null) {
-                key = key.equals("chant") ? "recognize" : "chant";
-                text = pickLimited(lv, key);
-            }
-            if (text != null) {
-                lastCrowdLine = now;
-                sayText(lv, who, key, text);
-            }
+            lastCrowdLine = now;
         }
     }
 
@@ -308,6 +322,8 @@ public class Crowd {
             if (tc < nextSpeechTick && !(head.level() >= 2 && tc >= speechStartTick + 20)) return;
             speechQueue.removeFirst();
             playSpeechNow(lv, speaker, head.key(), head.text());
+            if (head.replier() != null && head.replier().isAlive())   // the other villager answers right after
+                speechQueue.addFirst(new QueuedSpeech(head.replier(), head.replyKey(), head.replyText(), 1));
             speechStartTick = tc;
             nextSpeechTick = tc + Voices.durationTicks(head.key(), head.text()) + SPEECH_GAP;
             return;
@@ -328,13 +344,7 @@ public class Crowd {
     }
 
     static String pickLimited(ServerLevel lv, String key) {
-        List<String> pool = new ArrayList<>();
-        for (String line : Talk.lines(key))
-            if (used.getOrDefault(key + "|" + line, 0) < Cfg.d.maxTimesPerLine) pool.add(line);
-        if (pool.isEmpty()) return null;
-        String result = pool.get(lv.random.nextInt(pool.size()));
-        used.merge(key + "|" + result, 1, Integer::sum);
-        return result;
+        return pickUnique(lv, key);
     }
 
     static String key(ItemStack stack) {
@@ -395,9 +405,48 @@ public class Crowd {
         villager.setUnhappyCounter(40);
     }
 
+    /** A question from one villager and the answer of another one, always back to back. */
+    static void queueExchange(Villager asker, String askText, Villager replier, String replyText) {
+        if (asker == null || replier == null || !asker.isAlive() || !replier.isAlive()) return;
+        if (speechQueue.size() >= 38) return;
+        speechQueue.addLast(new QueuedSpeech(asker, "ask", askText, 0, replier, "answer", replyText));
+    }
+
+    static final Map<String, String> lastLine = new HashMap<>();
+
+    /** A line that has not been said yet in this protest: two villagers never say the same sentence.
+     *  When every line of a key has been used, the key starts over (but not with the line just said). */
+    static String pickUnique(ServerLevel lv, String key) {
+        List<String> all = Talk.lines(key);
+        if (all.isEmpty()) return Talk.pick(key, lv.random);
+        List<String> pool = new ArrayList<>();
+        for (String line : all) if (used.getOrDefault(key + "|" + line, 0) < 1) pool.add(line);
+        if (pool.isEmpty()) {
+            used.keySet().removeIf(k -> k.startsWith(key + "|"));
+            pool.addAll(all);
+            if (pool.size() > 1) pool.remove(lastLine.get(key));
+        }
+        String r = pool.get(lv.random.nextInt(pool.size()));
+        used.put(key + "|" + r, 1);
+        lastLine.put(key, r);
+        return r;
+    }
+
+    /** A matching question/answer pair (ask_N goes with answer_N), unused in this protest, or null. */
+    static String[] pickExchange(ServerLevel lv) {
+        List<String> asks = Talk.lines("ask"), answers = Talk.lines("answer");
+        int n = Math.min(asks.size(), answers.size());
+        List<Integer> pool = new ArrayList<>();
+        for (int i = 0; i < n; i++) if (used.getOrDefault("ask|" + asks.get(i), 0) < 1) pool.add(i);
+        if (pool.isEmpty()) return null;
+        int i = pool.get(lv.random.nextInt(pool.size()));
+        used.put("ask|" + asks.get(i), 1);
+        return new String[]{asks.get(i), answers.get(i)};
+    }
+
     /** Story line: spoken in order, never over another line. */
     static void say(ServerLevel lv, Villager villager, String key) {
-        queueSpeech(villager, key, Talk.pick(key, lv.random), 1);
+        queueSpeech(villager, key, pickUnique(lv, key), 1);
     }
 
     /** Ambient chatter: dropped if something more important comes up. */
@@ -407,7 +456,7 @@ public class Crowd {
 
     /** Direct reaction to the player: jumps the queue and starts without waiting for the next crowd update. */
     static void sayPriority(ServerLevel lv, Villager villager, String key) {
-        queueSpeech(villager, key, Talk.pick(key, lv.random), 2);
+        queueSpeech(villager, key, pickUnique(lv, key), 2);
         processSpeech(lv.getServer().getTickCount());
     }
 
@@ -472,6 +521,8 @@ public class Crowd {
             case "recognize" -> { look = "text"; data = textData("\u266A", "aqua"); scale = 1.8f; }
             case "chant" -> { look = "text"; data = textData("RTX", "green"); scale = 1.2f; }
             case "spot" -> { look = "text"; data = textData("?", "yellow"); scale = 1.6f; }
+            case "ask" -> { look = "text"; data = textData("?", "aqua"); scale = 1.6f; }
+            case "answer" -> { look = "text"; data = textData("!", "green"); scale = 1.5f; }
             case "flee" -> { look = "text"; data = textData("STOP!", "red"); scale = 1.1f; }
             case "emerald" -> { look = "item"; data = itemData("minecraft:emerald"); scale = 0.7f; }
             case "furnace" -> { look = "item"; data = itemData("minecraft:furnace"); scale = 0.7f; }
@@ -559,7 +610,8 @@ public class Crowd {
 
     static void playSpeechNow(ServerLevel lv, Villager villager, String key, String text) {
         startEmote(lv, villager, key);
-        boolean calmLine = key.equals("spot") || key.equals("recognize") || key.equals("shout") || key.equals("chant");
+        boolean calmLine = key.equals("spot") || key.equals("recognize") || key.equals("shout") || key.equals("chant")
+                || key.equals("ask") || key.equals("answer");
         if (!calmLine) villager.setUnhappyCounter(40);               // shakes his head
         if (key.equals("shout") || key.equals("chant") || key.equals("flee")) hop(villager);
         int n = Math.floorMod(villager.getUUID().hashCode(), 100);
@@ -572,7 +624,8 @@ public class Crowd {
         SoundEvent voice = Voices.find(key, text);
         if (voice != null) lv.playSound(null, villager.blockPosition(), voice, SoundSource.VOICE, 2f, 1f);
         else lv.playSound(null, villager.blockPosition(),
-                key.equals("spot") || key.equals("recognize") ? SoundEvents.VILLAGER_AMBIENT : SoundEvents.VILLAGER_NO,
+                key.equals("spot") || key.equals("recognize") || key.equals("ask") || key.equals("answer")
+                        ? SoundEvents.VILLAGER_AMBIENT : SoundEvents.VILLAGER_NO,
                 SoundSource.NEUTRAL, 1f, 0.8f + lv.random.nextFloat() * 0.4f);
     }
 }
