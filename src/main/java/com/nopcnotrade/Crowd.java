@@ -32,11 +32,23 @@ public class Crowd {
     static final Map<UUID, Long> lastPathUpdate = new HashMap<>();
     static final Map<String, Integer> used = new HashMap<>(); // "key|line" -> times said this wave
 
-    // All dialogue goes through this one queue. Only one voice line can start at a time.
-    private record QueuedSpeech(Villager speaker, String key, String text) {}
+    // The protest "script": one villager spots the target, calls the others, they gather around him,
+    // then they protest one at a time. If the target walks away they chase him and shout after him.
+    enum Phase { IDLE, SPOTTED, CALLING, GATHERING, PROTEST }
+    static Phase phase = Phase.IDLE;
+    static UUID spotter = null;
+    static long phaseTick = 0;                 // server tick the current phase started
+    static final Set<UUID> arrived = new HashSet<>(), reacted = new HashSet<>();
+    static long lastFleeLine = -10000;         // game time
+    static int chantTurn = 0;
+
+    // All dialogue goes through this one queue, so only one villager speaks at a time.
+    // level 0 = ambient chatter, 1 = story script, 2 = direct reaction to the player (jumps the queue).
+    private record QueuedSpeech(Villager speaker, String key, String text, int level) {}
     static final Deque<QueuedSpeech> speechQueue = new ArrayDeque<>();
-    static long nextSpeechTick = 0;
-    static long lastCrowdLine = -10000;
+    static long nextSpeechTick = 0, speechStartTick = -1000;   // server ticks
+    static long lastCrowdLine = -10000;                        // game time
+    static final int SPEECH_GAP = 12;                          // silence between two lines (ticks)
 
     // Short-lived floating emotes: a vanilla Display entity (item icon or text) that follows the
     // speaking villager's head, pops in, rises slowly and shrinks away. Works with vanilla clients.
@@ -75,10 +87,12 @@ public class Crowd {
         return p.getName().getString().equalsIgnoreCase(Cfg.d.targetUsername.trim());
     }
 
-    /** Runs every 0.5s. Villager movement is controlled only by the vanilla Brain. */
+
+    /** Runs every tick for speech/emotes; the crowd logic itself runs every 0.5s. Movement is vanilla Brain only. */
     public static void tick(MinecraftServer s) {
         int tc = s.getTickCount();
         tickEmotes();
+        processSpeech(tc);   // every tick, so replies to the player are not delayed
         if (tc % 10 != 0) return;
 
         String name = Cfg.d.targetUsername.trim();
@@ -88,18 +102,9 @@ public class Crowd {
             if (isTarget(sp)) { p = sp; break; }
 
         if (p == null || p.isSpectator() || !(p.level() instanceof ServerLevel lv)) {
-            if (!active.isEmpty() || !speechQueue.isEmpty()) {
-                active.clear();
-                calm.clear();
-                commandedSlots.clear();
-                lastPathUpdate.clear();
-                speechQueue.clear();
-                nextSpeechTick = tc;
-            }
+            if (!active.isEmpty() || !speechQueue.isEmpty() || phase != Phase.IDLE) resetAll(tc);
             return;
         }
-
-        processSpeech(tc);
 
         long now = lv.getGameTime();
         boolean sec = tc % 20 == 0;
@@ -111,10 +116,12 @@ public class Crowd {
                     calm.put(id, now + 600);
                     commandedSlots.remove(id);
                     lastPathUpdate.remove(id);
+                    arrived.remove(id);
                     it.remove();
                 }
             }
             calm.values().removeIf(t -> t <= now);
+            if (active.isEmpty() && phase != Phase.IDLE) endProtest();
         }
 
         List<Villager> vs = lv.getEntitiesOfClass(Villager.class, p.getBoundingBox().inflate(Cfg.d.radius),
@@ -123,25 +130,70 @@ public class Crowd {
         final ServerPlayer targetPlayer = p;
         vs.sort(Comparator.comparingDouble(v -> v.distanceToSqr(targetPlayer)));
 
-        if (sec) { // Gradual recruitment, at most 3 new villagers per second.
-            boolean fresh = active.isEmpty();
-            if (fresh) used.keySet().removeIf(k -> k.startsWith("recognize|"));
+        Villager spot = null;
+        if (spotter != null)
+            for (Villager v : vs) if (v.getUUID().equals(spotter)) { spot = v; break; }
+
+        // 1) Story: one villager recognises the target, then calls the others.
+        switch (phase) {
+            case IDLE -> {
+                if (sec && active.isEmpty()) {
+                    for (Villager v : vs) {
+                        if (calm.containsKey(v.getUUID())) continue;
+                        spotter = v.getUUID();
+                        active.put(spotter, now + Cfg.d.crowdSeconds * 20L + 100);
+                        reacted.add(spotter);
+                        used.clear();
+                        phase = Phase.SPOTTED;
+                        phaseTick = tc;
+                        v.getBrain().setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(targetPlayer, true));
+                        hop(v);
+                        say(lv, v, "spot");
+                        lastCrowdLine = now;
+                        break;
+                    }
+                }
+            }
+            case SPOTTED -> {
+                if (spot == null) {
+                    active.remove(spotter);
+                    endProtest();
+                } else if (speechIdle(tc) && tc - phaseTick >= 30) {
+                    say(lv, spot, "shout");   // the call: now the others come
+                    hop(spot);
+                    lastCrowdLine = now;
+                    phase = Phase.CALLING;
+                    phaseTick = tc;
+                }
+            }
+            case CALLING -> {
+                if (speechIdle(tc) && tc - phaseTick >= 20) {
+                    phase = Phase.GATHERING;
+                    phaseTick = tc;
+                }
+            }
+            default -> { }
+        }
+
+        // 2) Gradual recruitment once the call has been made: at most 3 new villagers per second.
+        if (sec && phase.ordinal() >= Phase.CALLING.ordinal()) {
             int add = 0;
             for (Villager v : vs) {
                 if (active.size() >= Cfg.d.maxCrowd || add >= 3) break;
                 if (active.containsKey(v.getUUID()) || calm.containsKey(v.getUUID())) continue;
                 active.put(v.getUUID(), now + Cfg.d.crowdSeconds * 20L);
-                if (fresh && add == 0) {
-                    say(lv, v, "shout");
-                    lastCrowdLine = now;
-                }
                 add++;
             }
         }
 
         List<Villager> crowd = new ArrayList<>();
         for (Villager v : vs) if (active.containsKey(v.getUUID())) crowd.add(v);
+        double closest = crowd.isEmpty() ? 0 : Math.sqrt(crowd.get(0).distanceToSqr(targetPlayer));
+        boolean fleeing = (phase == Phase.GATHERING || phase == Phase.PROTEST) && closest > 5.5;
+        // They run when called and when the target tries to get away, and walk once they are around him.
+        float speed = fleeing ? 1.1f : (phase == Phase.CALLING || phase == Phase.GATHERING ? 1.0f : 0.85f);
 
+        // 3) Movement: everybody turns to look at the target and walks to their own spot around him.
         for (Villager v : crowd) {
             UUID id = v.getUUID();
             int h = id.hashCode();
@@ -151,9 +203,11 @@ public class Crowd {
             double d2 = v.distanceToSqr(slot);
             var brain = v.getBrain();
             brain.setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(p, true));
+            if (phase == Phase.SPOTTED) continue;   // the first one just stands there staring
 
             if (d2 <= 2.25) {
                 // Let the villager stop naturally once it reaches its assigned place.
+                arrived.add(id);
                 brain.eraseMemory(MemoryModuleType.WALK_TARGET);
                 commandedSlots.remove(id);
                 lastPathUpdate.remove(id);
@@ -164,45 +218,113 @@ public class Crowd {
                 boolean retryPath = tc - lastPathUpdate.getOrDefault(id, 0L) >= 60;
                 if (slotMoved || retryPath) {
                     // Do not call Navigation.moveTo as well: Brain/WalkTarget owns pathfinding.
-                    brain.setMemory(MemoryModuleType.WALK_TARGET, new WalkTarget(slot, 0.85f, 1));
+                    brain.setMemory(MemoryModuleType.WALK_TARGET, new WalkTarget(slot, speed, 1));
                     commandedSlots.put(id, slot);
                     lastPathUpdate.put(id, (long) tc);
                 }
             }
         }
 
-        // Ambient recognition is deliberately slower and never floods the dialogue queue.
-        if (sec && !crowd.isEmpty() && speechQueue.size() < 3
+        // 4) Once about half of them are around the target (or after 8s) the protest starts.
+        if (phase == Phase.GATHERING && tc - phaseTick >= 60) {
+            int here = 0;
+            for (Villager v : crowd) if (arrived.contains(v.getUUID())) here++;
+            if ((!crowd.isEmpty() && here * 2 >= crowd.size()) || tc - phaseTick >= 160) {
+                phase = Phase.PROTEST;
+                phaseTick = tc;
+            }
+        }
+
+        // 5) If the target walks away, the nearest villager shouts after him (and the crowd runs after him).
+        if (sec && fleeing && now - lastFleeLine >= 140) {
+            lastFleeLine = now;
+            lastCrowdLine = now;
+            Villager shouter = crowd.get(0);
+            queueSpeech(shouter, "flee", Talk.pick("flee", lv.random), 2);
+            processSpeech(tc);
+        }
+
+        // 6) Protest lines, strictly one villager at a time: first each villager reacts once, then chants.
+        if (phase == Phase.PROTEST && sec && !crowd.isEmpty() && speechIdle(tc)
                 && now - lastCrowdLine >= Cfg.d.secondsBetweenCrowdLines * 20L) {
-            String text = pickLimited(lv, "recognize");
+            Villager who = null;
+            String key = "recognize";
+            for (Villager v : crowd)
+                if (arrived.contains(v.getUUID()) && !reacted.contains(v.getUUID())) { who = v; break; }
+            if (who != null) {
+                reacted.add(who.getUUID());
+            } else {
+                who = crowd.get(lv.random.nextInt(crowd.size()));
+                key = (chantTurn++ % 2 == 0) ? "chant" : "recognize";
+            }
+            String text = pickLimited(lv, key);
+            if (text == null) {
+                key = key.equals("chant") ? "recognize" : "chant";
+                text = pickLimited(lv, key);
+            }
             if (text != null) {
                 lastCrowdLine = now;
-                sayText(lv, crowd.get(lv.random.nextInt(crowd.size())), "recognize", text);
+                sayText(lv, who, key, text);
             }
         }
     }
 
-    /** Starts at most one queued voice line, then waits for its estimated playback time plus a pause. */
-    static void processSpeech(int serverTick) {
-        if (serverTick < nextSpeechTick) return;
-        while (!speechQueue.isEmpty()) {
-            QueuedSpeech queued = speechQueue.removeFirst();
-            Villager speaker = queued.speaker();
-            if (speaker == null || !speaker.isAlive() || !(speaker.level() instanceof ServerLevel lv)) continue;
+    static void resetAll(int tc) {
+        active.clear();
+        calm.clear();
+        commandedSlots.clear();
+        lastPathUpdate.clear();
+        speechQueue.clear();
+        nextSpeechTick = tc;
+        endProtest();
+    }
 
-            playSpeechNow(lv, speaker, queued.key(), queued.text());
-            // Conservative estimate: 1.5s base + roughly 0.1s per character + 0.75s silence.
-            int durationTicks = Math.max(55, Math.min(150, 45 + queued.text().length() * 2));
-            nextSpeechTick = serverTick + durationTicks;
+    static void endProtest() {
+        phase = Phase.IDLE;
+        spotter = null;
+        arrived.clear();
+        reacted.clear();
+        chantTurn = 0;
+    }
+
+    static void hop(Villager v) {
+        if (v.onGround()) v.getJumpControl().jump();
+    }
+
+    static boolean speechIdle(int tc) {
+        return speechQueue.isEmpty() && tc >= nextSpeechTick;
+    }
+
+    /** Starts at most one queued line. It waits for the previous clip to really finish (known clip length),
+     *  except a direct reaction to the player, which may cut in after one second. */
+    static void processSpeech(int tc) {
+        while (!speechQueue.isEmpty()) {
+            QueuedSpeech head = speechQueue.peekFirst();
+            Villager speaker = head.speaker();
+            if (speaker == null || !speaker.isAlive() || !(speaker.level() instanceof ServerLevel lv)) {
+                speechQueue.removeFirst();
+                continue;
+            }
+            if (tc < nextSpeechTick && !(head.level() >= 2 && tc >= speechStartTick + 20)) return;
+            speechQueue.removeFirst();
+            playSpeechNow(lv, speaker, head.key(), head.text());
+            speechStartTick = tc;
+            nextSpeechTick = tc + Voices.durationTicks(head.key(), head.text()) + SPEECH_GAP;
             return;
         }
     }
 
-    static void queueSpeech(Villager speaker, String key, String text) {
+    static void queueSpeech(Villager speaker, String key, String text, int level) {
         if (speaker == null || !speaker.isAlive() || text == null || text.isBlank()) return;
         // Bound the queue so rapid player interactions cannot create minutes of stale dialogue.
         if (speechQueue.size() >= 40) return;
-        speechQueue.addLast(new QueuedSpeech(speaker, key, text));
+        QueuedSpeech q = new QueuedSpeech(speaker, key, text, level);
+        if (level >= 2) {
+            speechQueue.removeIf(x -> x.level() == 0);   // drop stale ambient chatter
+            speechQueue.addFirst(q);
+        } else {
+            speechQueue.addLast(q);
+        }
     }
 
     static String pickLimited(ServerLevel lv, String key) {
@@ -229,6 +351,7 @@ public class Crowd {
         return "trade";
     }
 
+
     /** Intercepts right-clicks on villagers by the target only. Items are never consumed. */
     public static InteractionResult interact(net.minecraft.world.entity.player.Player pl, net.minecraft.world.level.Level world,
                                                InteractionHand hand, net.minecraft.world.entity.Entity target) {
@@ -248,7 +371,7 @@ public class Crowd {
         state[1] = now;
 
         refuse(lv, villager);
-        say(lv, villager, key(player.getMainHandItem()));
+        sayPriority(lv, villager, key(player.getMainHandItem()));   // answers right away
 
         int chanters = (int) Math.min(2, (state[0] - 1) / 2);
         if (chanters > 0) {
@@ -261,29 +384,36 @@ public class Crowd {
                 chanter.getBrain().setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(player, true));
                 String chant = pickLimited(lv, "chant");
                 if (chant == null) break;
-                sayText(lv, chanter, "chant", chant);
+                sayText(lv, chanter, "chant", chant);   // queued after the answer, one at a time
             }
         }
         return InteractionResult.SUCCESS_SERVER;
     }
 
+    /** Head shake only; the sound comes from the voice line itself, so nothing talks over anything. */
     static void refuse(ServerLevel lv, Villager villager) {
         villager.setUnhappyCounter(40);
-        lv.playSound(null, villager.blockPosition(), SoundEvents.VILLAGER_NO, SoundSource.NEUTRAL,
-                1f, 0.9f + lv.random.nextFloat() * 0.2f);
     }
 
+    /** Story line: spoken in order, never over another line. */
     static void say(ServerLevel lv, Villager villager, String key) {
-        sayText(lv, villager, key, Talk.pick(key, lv.random));
+        queueSpeech(villager, key, Talk.pick(key, lv.random), 1);
     }
 
+    /** Ambient chatter: dropped if something more important comes up. */
     static void sayText(ServerLevel lv, Villager villager, String key, String text) {
-        queueSpeech(villager, key, text);
+        queueSpeech(villager, key, text, 0);
+    }
+
+    /** Direct reaction to the player: jumps the queue and starts without waiting for the next crowd update. */
+    static void sayPriority(ServerLevel lv, Villager villager, String key) {
+        queueSpeech(villager, key, Talk.pick(key, lv.random), 2);
+        processSpeech(lv.getServer().getTickCount());
     }
 
     private static ParticleOptions fallbackParticle(String key) {
         return switch (key) {
-            case "shout", "trade" -> ParticleTypes.ANGRY_VILLAGER;
+            case "shout", "trade", "flee" -> ParticleTypes.ANGRY_VILLAGER;
             case "recognize" -> ParticleTypes.NOTE;
             case "chant" -> ParticleTypes.CRIT;
             case "emerald" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.EMERALD));
@@ -341,6 +471,8 @@ public class Crowd {
             case "trade" -> { look = "text"; data = textData("NO PC!", "red"); scale = 1.0f; }
             case "recognize" -> { look = "text"; data = textData("\u266A", "aqua"); scale = 1.8f; }
             case "chant" -> { look = "text"; data = textData("RTX", "green"); scale = 1.2f; }
+            case "spot" -> { look = "text"; data = textData("?", "yellow"); scale = 1.6f; }
+            case "flee" -> { look = "text"; data = textData("STOP!", "red"); scale = 1.1f; }
             case "emerald" -> { look = "item"; data = itemData("minecraft:emerald"); scale = 0.7f; }
             case "furnace" -> { look = "item"; data = itemData("minecraft:furnace"); scale = 0.7f; }
             case "toaster" -> { look = "item"; data = itemData("nopcnotrade:toaster"); scale = 0.8f; }
@@ -427,6 +559,9 @@ public class Crowd {
 
     static void playSpeechNow(ServerLevel lv, Villager villager, String key, String text) {
         startEmote(lv, villager, key);
+        boolean calmLine = key.equals("spot") || key.equals("recognize") || key.equals("shout") || key.equals("chant");
+        if (!calmLine) villager.setUnhappyCounter(40);               // shakes his head
+        if (key.equals("shout") || key.equals("chant") || key.equals("flee")) hop(villager);
         int n = Math.floorMod(villager.getUUID().hashCode(), 100);
         MutableComponent message = Component.literal("[Villager #" + n + "]: ")
                 .withStyle(COLORS[n % COLORS.length], ChatFormatting.BOLD)
@@ -436,7 +571,8 @@ public class Crowd {
 
         SoundEvent voice = Voices.find(key, text);
         if (voice != null) lv.playSound(null, villager.blockPosition(), voice, SoundSource.VOICE, 2f, 1f);
-        else lv.playSound(null, villager.blockPosition(), SoundEvents.VILLAGER_AMBIENT, SoundSource.NEUTRAL,
-                1f, 0.8f + lv.random.nextFloat() * 0.4f);
+        else lv.playSound(null, villager.blockPosition(),
+                key.equals("spot") || key.equals("recognize") ? SoundEvents.VILLAGER_AMBIENT : SoundEvents.VILLAGER_NO,
+                SoundSource.NEUTRAL, 1f, 0.8f + lv.random.nextFloat() * 0.4f);
     }
 }

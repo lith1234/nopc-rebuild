@@ -19,6 +19,9 @@ public class Talk {
         d("redstone", "ARE YOU TRYING TO BUILD A MOTHERBOARD?", "FINALLY, SOME TECHNOLOGY... WAIT, NO.");
         d("iron_ingot", "IS THIS THE CASE?", "WHERE ARE THE OTHER COMPONENTS?");
         d("diamond", "OKAY, NOW WE'RE GETTING SOMEWHERE.", "WAIT... STILL NO PC?", "I CAN'T INSTALL WINDOWS ON A DIAMOND!");
+        // Protest script (added at the end so the clip numbers of the lines above never change).
+        d("spot", "WAIT... IS THAT THE PC GUY?", "HEY... I KNOW YOU!", "HOLD ON... IT'S HIM!");
+        d("flee", "DON'T WALK AWAY!", "WHERE ARE YOU GOING?!", "GET BACK HERE!", "WE'RE NOT DONE YET!", "DON'T RUN FROM US!");
     }
 
     public static List<String> lines(String key) {

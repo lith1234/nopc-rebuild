@@ -54,3 +54,11 @@ iron_ingot_2.ogg  ->  WHERE ARE THE OTHER COMPONENTS?
 diamond_1.ogg  ->  OKAY, NOW WE'RE GETTING SOMEWHERE.
 diamond_2.ogg  ->  WAIT... STILL NO PC?
 diamond_3.ogg  ->  I CAN'T INSTALL WINDOWS ON A DIAMOND!
+spot_1.ogg  ->  WAIT... IS THAT THE PC GUY?
+spot_2.ogg  ->  HEY... I KNOW YOU!
+spot_3.ogg  ->  HOLD ON... IT'S HIM!
+flee_1.ogg  ->  DON'T WALK AWAY!   (already uses recognize_4.ogg, no need to record)
+flee_2.ogg  ->  WHERE ARE YOU GOING?!
+flee_3.ogg  ->  GET BACK HERE!
+flee_4.ogg  ->  WE'RE NOT DONE YET!
+flee_5.ogg  ->  DON'T RUN FROM US!
