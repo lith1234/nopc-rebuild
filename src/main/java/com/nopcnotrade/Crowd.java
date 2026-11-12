@@ -54,7 +54,7 @@ public class Crowd {
 
     // Short-lived floating emotes: a vanilla Display entity (item icon or text) that follows the
     // speaking villager's head, pops in, rises slowly and shrinks away. Works with vanilla clients.
-    // If the display entity cannot be spawned, falls back to the old particle burst.
+    // Speech is shown as text above the villager; no symbolic particle fallback is used.
     static final int EMOTE_LIFE = 44;
     private static final class ActiveEmote {
         final Villager villager;
@@ -62,7 +62,6 @@ public class Crowd {
         final String displayTag;
         final float scale;
         final long startedAt, expiresAt;
-        long nextPulse;
         boolean displaySpawned;
         int phase = 0;          // 0 = spawned, 1 = popped in, 2 = shrinking
 
@@ -74,7 +73,6 @@ public class Crowd {
             this.scale = scale;
             this.startedAt = startTick;
             this.expiresAt = startTick + EMOTE_LIFE;
-            this.nextPulse = startTick;
             this.displaySpawned = displaySpawned;
         }
     }
