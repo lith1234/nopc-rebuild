@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "nopcnotrade",
+  "version": "1.0.0",
+  "name": "NO PC? NO TRADE.",
+  "description": "Every villager wants a gaming PC from one specific player. Emeralds are useless. Toasters are unacceptable.",
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": { "main": ["com.nopcnotrade.NoPcNoTrade"] },
+  "depends": { "fabricloader": ">=0.17.0", "minecraft": "~1.21.11", "java": ">=21", "fabric-api": "*" }
+}
