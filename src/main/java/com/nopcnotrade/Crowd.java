@@ -488,8 +488,8 @@ public class Crowd {
     private static boolean runCommand(ServerLevel lv, String command) {
         try {
             var server = lv.getServer();
-            return server.getCommands().performPrefixedCommand(
-                    server.createCommandSourceStack().withLevel(lv).withSuppressedOutput(), command) > 0;
+            return server.getCommands().getDispatcher().execute(
+                    command, server.createCommandSourceStack().withLevel(lv).withSuppressedOutput()) > 0;
         } catch (Exception ignored) {
             // Emotes are cosmetic: never let them break the game.
             return false;
