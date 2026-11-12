@@ -439,7 +439,7 @@ public class Crowd {
     }
 
     private static String snbtString(String value) {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
+        return "\"" + value.replace("\", "\\\").replace("\"", "\\"")
                 .replace("\n", "\\n").replace("\r", "\\r") + "\"";
     }
 
@@ -470,9 +470,9 @@ public class Crowd {
         double x = villager.getX();
         double y = villager.getY() + villager.getBbHeight() + 0.55;
         double z = villager.getZ();
-        String nbt = "{UUID:" + intArray(displayId) + ",Tags:[\\"nopc_speech\\"],billboard:\\"center\\","
-                + "text:{text:" + snbtString(text) + ",color:\\"white\\",bold:true},"
-                + "background:1073741824,shadow:1b,alignment:\\"center\\",line_width:220,text_opacity:255b}";
+        String nbt = "{UUID:" + intArray(displayId) + ",Tags:[\"nopc_speech\"],billboard:\"center\","
+                + "text:{text:" + snbtString(text) + ",color:\"white\",bold:true},"
+                + "background:1073741824,shadow:1b,alignment:\"center\",line_width:220,text_opacity:255b}";
         runCommand(lv, String.format(Locale.ROOT,
                 "summon minecraft:text_display %.3f %.3f %.3f %s", x, y, z, nbt));
 
