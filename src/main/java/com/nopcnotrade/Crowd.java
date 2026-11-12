@@ -490,10 +490,6 @@ public class Crowd {
                 + y + "f,0f],scale:[" + scale + "f," + scale + "f," + scale + "f]}";
     }
 
-    private static String intArray(UUID id) {
-        long m = id.getMostSignificantBits(), l = id.getLeastSignificantBits();
-        return "[I;" + (int) (m >> 32) + "," + (int) m + "," + (int) (l >> 32) + "," + (int) l + "]";
-    }
 
     private static boolean runCommand(ServerLevel lv, String command) {
         try {
@@ -543,7 +539,7 @@ public class Crowd {
         double y = villager.getY() + villager.getBbHeight() + 0.45;
         double z = villager.getZ();
         String type = look.equals("item") ? "minecraft:item_display" : "minecraft:text_display";
-        String nbt = "{Tags:[\\\"nopc_emote\\\",\\\"" + displayTag + "\\\"],billboard:\\\"center\\\","
+        String nbt = "{Tags:[\"nopc_emote\",\"" + displayTag + "\"],billboard:\"center\","
                 + "teleport_duration:3,brightness:{sky:15,block:15}," + data + "," + tf(0.01f, 0f) + "}";
         boolean spawned = runCommand(lv, String.format(Locale.ROOT,
                 "summon %s %.3f %.3f %.3f %s", type, x, y, z, nbt));
@@ -578,19 +574,26 @@ public class Crowd {
                 boolean moved = runCommand(lv, String.format(Locale.ROOT,
                         "tp @e[tag=%s,limit=1] %.3f %.3f %.3f", emote.displayTag, x, y, z));
                 if (!moved) {
+                    removeEmote(lv, emote.displayTag);
                     emote.displaySpawned = false;
                 } else if (emote.phase == 0 && now - emote.startedAt >= 1) {
                     boolean animated = runCommand(lv, "data merge entity @e[tag=" + emote.displayTag
                             + ",limit=1] {start_interpolation:0,interpolation_duration:6,"
                             + tf(emote.scale, 0.18f) + "}");
                     if (animated) emote.phase = 1;
-                    else emote.displaySpawned = false;
+                    else {
+                        removeEmote(lv, emote.displayTag);
+                        emote.displaySpawned = false;
+                    }
                 } else if (emote.phase == 1 && emote.expiresAt - now <= 6) {
                     boolean animated = runCommand(lv, "data merge entity @e[tag=" + emote.displayTag
                             + ",limit=1] {start_interpolation:0,interpolation_duration:6,"
                             + tf(0.01f, 0.35f) + "}");
                     if (animated) emote.phase = 2;
-                    else emote.displaySpawned = false;
+                    else {
+                        removeEmote(lv, emote.displayTag);
+                        emote.displaySpawned = false;
+                    }
                 }
             }
 
