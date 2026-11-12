@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.nopcnotrade.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "VillagerSoundMuteMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

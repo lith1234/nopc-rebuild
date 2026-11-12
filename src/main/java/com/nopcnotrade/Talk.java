@@ -19,14 +19,13 @@ public class Talk {
         d("redstone", "ARE YOU TRYING TO BUILD A MOTHERBOARD?", "FINALLY, SOME TECHNOLOGY... WAIT, NO.");
         d("iron_ingot", "IS THIS THE CASE?", "WHERE ARE THE OTHER COMPONENTS?");
         d("diamond", "OKAY, NOW WE'RE GETTING SOMEWHERE.", "WAIT... STILL NO PC?", "I CAN'T INSTALL WINDOWS ON A DIAMOND!");
-        // Protest script (added at the end so the clip numbers of the lines above never change).
         d("spot", "WAIT... IS THAT THE PC GUY?", "HEY... I KNOW YOU!", "HOLD ON... IT'S HIM!");
         d("flee", "DON'T WALK AWAY!", "WHERE ARE YOU GOING?!", "GET BACK HERE!", "WE'RE NOT DONE YET!", "DON'T RUN FROM US!");
-        // Conversations: one villager asks, another answers. ask_N always goes with answer_N.
+        // Each question is paired by index with the answer immediately below it.
         d("ask", "HE OWES US A COMPUTER, RIGHT?", "IS THAT REALLY THE PC GUY?", "HAS HE EVER BOUGHT US A PC?",
                 "HOW LONG HAVE WE BEEN WAITING?", "WHAT DO WE WANT?", "DOES HE EVEN HAVE AN RTX 5090?",
                 "SHOULD WE TRADE WITH HIM?", "WILL HE EVER PAY UP?", "CAN WE RUN SHADERS WITHOUT A PC?");
-        d("answer", "YES, HE DOES!", "YES, YOU STUPID! LOOK AT HIM!", "NOT ONCE!",
+        d("answer", "YES, HE DOES!", "YES, HE IS! LOOK AT HIM!", "NOT ONCE!",
                 "SIX LONG MONTHS!", "COMPUTERS! WHEN? NOW!", "I DOUBT IT. HE PROBABLY HAS A TOASTER!",
                 "NO PC, NO TRADE!", "NOT IF WE LET HIM LEAVE!", "NO, THAT'S THE WHOLE PROBLEM!");
     }
@@ -34,14 +33,13 @@ public class Talk {
     public static List<String> lines(String key) {
         List<String> l = Cfg.d.dialogue.getOrDefault(key, List.of());
         if (l.isEmpty()) l = DEFAULTS.getOrDefault(key, List.of());
-        // Keep "don't walk away" exclusive to the actual flee reaction, not random recognition chatter.
         if (key.equals("recognize")) {
             l = l.stream().filter(line -> !line.equalsIgnoreCase("DON'T WALK AWAY!")).toList();
         }
-        // Upgrade the old default response in existing config files without discarding custom dialogue.
+        // Update an older saved config to the answer wording requested for this exchange.
         if (key.equals("answer")) {
-            l = l.stream().map(line -> line.equals("YES, HE IS! LOOK AT HIM!")
-                    ? "YES, YOU STUPID! LOOK AT HIM!" : line).toList();
+            l = l.stream().map(line -> line.equals("YES, YOU STUPID! LOOK AT HIM!")
+                    ? "YES, HE IS! LOOK AT HIM!" : line).toList();
         }
         return l;
     }
