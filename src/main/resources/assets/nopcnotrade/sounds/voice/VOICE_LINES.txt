@@ -1,0 +1,56 @@
+Record each line as <filename>.ogg (mono, 44.1 kHz) and put it in this folder.
+
+shout_1.ogg  ->  YO! THAT'S THE PC GUY!
+shout_2.ogg  ->  GUYS! HE'S HERE!
+shout_3.ogg  ->  THE PC GUY HAS ARRIVED!
+shout_4.ogg  ->  GET HIM! WE NEED A PC!
+shout_5.ogg  ->  BRO! WHERE'S OUR COMPUTER?
+recognize_1.ogg  ->  BRO! IT'S THE PC GUY!
+recognize_2.ogg  ->  WHERE'S MY GAMING PC?
+recognize_3.ogg  ->  I'VE BEEN WAITING FOR MONTHS!
+recognize_4.ogg  ->  DON'T WALK AWAY!
+recognize_5.ogg  ->  WE NEED RTX 5090!
+recognize_6.ogg  ->  THIS GUY OWES US A COMPUTER!
+recognize_7.ogg  ->  I'VE BEEN WAITING FOR 6 MONTHS!
+trade_1.ogg  ->  WILL YOU EVEN WANT TO TRADE WITH ME? GIVE ME A PC FIRST!
+trade_2.ogg  ->  YOU WANNA TRADE WITH ME? GET ME A PC FIRST!
+trade_3.ogg  ->  NO PC, NO TRADE!
+trade_4.ogg  ->  I'M NOT TRADING UNTIL I GET MY GAMING PC!
+trade_5.ogg  ->  BRO, WE'VE ALREADY DISCUSSED THIS!
+trade_6.ogg  ->  STOP SHOWING ME EMERALDS!
+trade_7.ogg  ->  I'M ON STRIKE!
+trade_8.ogg  ->  MY TRADING LICENSE HAS EXPIRED UNTIL I GET A PC!
+chant_1.ogg  ->  NO PC! NO TRADE!
+chant_2.ogg  ->  WE WANT COMPUTERS!
+chant_3.ogg  ->  RTX! RTX! RTX!
+chant_4.ogg  ->  GIVE US GAMING PCS!
+emerald_1.ogg  ->  WHAT AM I SUPPOSED TO DO WITH THESE?
+emerald_2.ogg  ->  BRO, I ASKED FOR A PC!
+emerald_3.ogg  ->  CAN I RUN SHADERS ON EMERALDS?
+emerald_4.ogg  ->  KEEP YOUR EMERALDS!
+emerald_5.ogg  ->  I CAN'T PLAY CYBERPUNK ON THIS!
+emerald_6.ogg  ->  DO I LOOK LIKE I WANT EMERALDS?
+emerald_7.ogg  ->  EMERALDS DON'T HAVE RTX!
+furnace_1.ogg  ->  BRO GAVE ME AN OVEN
+furnace_2.ogg  ->  WHAT AM I SUPPOSED TO DO WITH THIS?
+furnace_3.ogg  ->  I ASKED FOR A COMPUTER!
+furnace_4.ogg  ->  IS THIS YOUR IDEA OF A GAMING PC?
+furnace_5.ogg  ->  I'M NOT COOKING, I'M GAMING!
+furnace_6.ogg  ->  THIS IS NOT WHAT I MEANT!
+toaster_1.ogg  ->  BRO, THIS IS A TOASTER!
+toaster_2.ogg  ->  I SAID PC, NOT TOASTER!
+toaster_3.ogg  ->  CAN THIS THING RUN MINECRAFT?
+toaster_4.ogg  ->  WHERE'S THE GRAPHICS CARD?
+toaster_5.ogg  ->  THIS IS LITERALLY A BREAD MACHINE!
+toaster_6.ogg  ->  DO YOU THINK I'M STUPID?
+dirt_1.ogg  ->  BRO THINKS DIRT IS A PC.
+dirt_2.ogg  ->  WHAT AM I SUPPOSED TO DO WITH THIS?
+coal_1.ogg  ->  IS THIS THE POWER SUPPLY?
+coal_2.ogg  ->  I NEED A GRAPHICS CARD, NOT COAL!
+redstone_1.ogg  ->  ARE YOU TRYING TO BUILD A MOTHERBOARD?
+redstone_2.ogg  ->  FINALLY, SOME TECHNOLOGY... WAIT, NO.
+iron_ingot_1.ogg  ->  IS THIS THE CASE?
+iron_ingot_2.ogg  ->  WHERE ARE THE OTHER COMPONENTS?
+diamond_1.ogg  ->  OKAY, NOW WE'RE GETTING SOMEWHERE.
+diamond_2.ogg  ->  WAIT... STILL NO PC?
+diamond_3.ogg  ->  I CAN'T INSTALL WINDOWS ON A DIAMOND!
