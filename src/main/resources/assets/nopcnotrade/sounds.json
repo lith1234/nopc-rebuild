@@ -284,6 +284,26 @@
       "nopcnotrade:voice/spot_3"
     ]
   },
+  "hail_1": {
+    "sounds": [
+      "nopcnotrade:voice/hail_1"
+    ]
+  },
+  "hail_2": {
+    "sounds": [
+      "nopcnotrade:voice/hail_2"
+    ]
+  },
+  "hail_3": {
+    "sounds": [
+      "nopcnotrade:voice/hail_3"
+    ]
+  },
+  "hail_4": {
+    "sounds": [
+      "nopcnotrade:voice/hail_4"
+    ]
+  },
   "flee_1": {
     "sounds": [
       "nopcnotrade:voice/flee_1"

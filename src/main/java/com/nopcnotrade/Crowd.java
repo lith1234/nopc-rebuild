@@ -35,6 +35,12 @@ public class Crowd {
     static final Set<UUID> arrived = new HashSet<>(), reacted = new HashSet<>();
     static long lastFleeLine = -10000;         // game time
     static int chantTurn = 0;
+    // Reaction poses for Entity Model Features / Fresh Animations: while a villager speaks he is flagged
+    // "aggressive" and swings his arm. Those are vanilla synced states that EMF animations can read
+    // (is_aggressive, swing_progress, is_swinging_right_arm). Nothing is saved to the villager.
+    private record Stance(Villager villager, long until, boolean pump) {}
+    static final Map<UUID, Stance> stances = new HashMap<>();
+    static Vec3 anchor = null;   // fixed centre of the crowd; only moves when the target walks >3.5 blocks away
 
     // All dialogue goes through this one queue, so only one villager speaks at a time.
     // level 0 = ambient chatter, 1 = story script, 2 = direct reaction to the player (jumps the queue).
@@ -82,6 +88,7 @@ public class Crowd {
     public static void tick(MinecraftServer s) {
         int tc = s.getTickCount();
         tickEmotes();
+        tickStances(s);
         processSpeech(tc);   // every tick, so replies to the player are not delayed
         if (tc % 10 != 0) return;
 
@@ -194,32 +201,34 @@ public class Crowd {
         // They run when called and when the target tries to get away, and walk once they are around him.
         float speed = fleeing ? 1.1f : (phase == Phase.CALLING || phase == Phase.GATHERING ? 1.0f : 0.85f);
 
-        // 3) Movement: everybody turns to look at the target and walks to their own spot around him.
+        // 3) Movement: everybody turns to look at the target and walks to their own spot around him,
+        //    then STANDS there. The spots hang on a fixed anchor, so nobody circles around the target.
+        if (anchor == null || p.position().distanceToSqr(anchor) > 12.25) anchor = p.position();
         for (Villager v : crowd) {
             UUID id = v.getUUID();
             int h = id.hashCode();
             double ang = ((h & 0xFFFF) / 65536.0) * Math.PI * 2;
             double rad = 1.8 + ((h >>> 16) & 3) * 0.7;
-            Vec3 slot = p.position().add(Math.cos(ang) * rad, 0, Math.sin(ang) * rad);
+            Vec3 slot = anchor.add(Math.cos(ang) * rad, 0, Math.sin(ang) * rad);
             double d2 = v.distanceToSqr(slot);
             var brain = v.getBrain();
             brain.setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(p, true));
             if (phase == Phase.SPOTTED) continue;   // the first one just stands there staring
 
-            if (d2 <= 2.25) arrived.add(id);
-            if (d2 <= 0.36) {
-                // They may idle at their slot, but re-path if vanilla wandering pulls them away.
+            // Once in place they stay put; they only walk again if they end up more than 3 blocks away.
+            boolean standing = d2 <= 2.25 || (arrived.contains(id) && d2 <= 9.0);
+            if (standing) {
+                arrived.add(id);
                 brain.eraseMemory(MemoryModuleType.WALK_TARGET);
+                v.getNavigation().stop();
                 commandedSlots.remove(id);
                 lastPathUpdate.remove(id);
-                if (sec && v.onGround() && lv.random.nextInt(6) == 0) v.getJumpControl().jump();
             } else {
+                arrived.remove(id);
                 Vec3 previous = commandedSlots.get(id);
                 boolean slotMoved = previous == null || previous.distanceToSqr(slot) > 2.25;
                 boolean retryPath = tc - lastPathUpdate.getOrDefault(id, 0L) >= 60;
-                boolean needsHold = arrived.contains(id) && !brain.hasMemoryValue(MemoryModuleType.WALK_TARGET);
-                if (slotMoved || retryPath || needsHold) {
-                    // Keep a short leash on arrived villagers so vanilla idle wandering cannot scatter the crowd.
+                if (slotMoved || retryPath) {
                     brain.setMemory(MemoryModuleType.WALK_TARGET, new WalkTarget(slot, speed, 1));
                     commandedSlots.put(id, slot);
                     lastPathUpdate.put(id, (long) tc);
@@ -234,6 +243,15 @@ public class Crowd {
             if ((!crowd.isEmpty() && here * 2 >= crowd.size()) || tc - phaseTick >= 160) {
                 phase = Phase.PROTEST;
                 phaseTick = tc;
+                // First they call out to the target, and only then make their demands.
+                Villager hailer = null;
+                for (Villager v : crowd) if (arrived.contains(v.getUUID())) { hailer = v; break; }
+                if (hailer == null && !crowd.isEmpty()) hailer = crowd.get(0);
+                if (hailer != null) {
+                    reacted.add(hailer.getUUID());
+                    say(lv, hailer, "hail");
+                    lastCrowdLine = now;
+                }
             }
         }
 
@@ -280,7 +298,36 @@ public class Crowd {
         }
     }
 
+    static void react(ServerLevel lv, Villager villager, String key, String text) {
+        if (key.equals("spot")) return;   // the first one only stares
+        villager.setAggressive(true);
+        boolean pump = key.equals("shout") || key.equals("chant") || key.equals("flee") || key.equals("hail");
+        stances.put(villager.getUUID(),
+                new Stance(villager, lv.getGameTime() + Voices.durationTicks(key, text), pump));
+        if (pump || key.equals("answer")) villager.swing(InteractionHand.MAIN_HAND);
+    }
+
+    static void tickStances(MinecraftServer s) {
+        long now = s.overworld().getGameTime();
+        for (var it = stances.entrySet().iterator(); it.hasNext();) {
+            Stance st = it.next().getValue();
+            Villager v = st.villager();
+            if (!v.isAlive() || now >= st.until()) {
+                v.setAggressive(false);
+                it.remove();
+            } else if (st.pump() && now % 14 == 0) {
+                v.swing(InteractionHand.MAIN_HAND);   // fist pumping while shouting / chanting
+            }
+        }
+    }
+
+    static void clearStances() {
+        for (Stance st : stances.values()) st.villager().setAggressive(false);
+        stances.clear();
+    }
+
     static void resetAll(int tc) {
+        clearStances();
         active.clear();
         calm.clear();
         commandedSlots.clear();
@@ -296,6 +343,7 @@ public class Crowd {
         arrived.clear();
         reacted.clear();
         chantTurn = 0;
+        anchor = null;
     }
 
     static void hop(Villager v) {
@@ -579,6 +627,7 @@ public class Crowd {
 
     /** Removes any leftover emote display entities (e.g. when the server stops mid-emote). */
     public static void cleanup(MinecraftServer s) {
+        clearStances();
         emotes.clear();
         for (ServerLevel level : s.getAllLevels()) {
             runCommand(level, "kill @e[tag=nopc_emote]");
@@ -587,7 +636,8 @@ public class Crowd {
 
     static void playSpeechNow(ServerLevel lv, Villager villager, String key, String text) {
         startEmote(lv, villager, key, text);
-        boolean calmLine = key.equals("spot") || key.equals("recognize") || key.equals("shout") || key.equals("chant")
+        react(lv, villager, key, text);
+        boolean calmLine = key.equals("spot") || key.equals("hail") || key.equals("recognize") || key.equals("shout") || key.equals("chant")
                 || key.equals("ask") || key.equals("answer");
         if (!calmLine) villager.setUnhappyCounter(40);               // shakes his head
         if (key.equals("shout") || key.equals("chant") || key.equals("flee")) hop(villager);

@@ -20,6 +20,7 @@ public class Talk {
         d("iron_ingot", "IS THIS THE CASE?", "WHERE ARE THE OTHER COMPONENTS?");
         d("diamond", "OKAY, NOW WE'RE GETTING SOMEWHERE.", "WAIT... STILL NO PC?", "I CAN'T INSTALL WINDOWS ON A DIAMOND!");
         d("spot", "WAIT... IS THAT THE PC GUY?", "HEY... I KNOW YOU!", "HOLD ON... IT'S HIM!");
+        d("hail", "HEY! YOU! STOP RIGHT THERE!", "WE NEED TO TALK, PC GUY!", "NOT SO FAST, PC GUY!", "HEY, WE'VE BEEN LOOKING FOR YOU!");
         d("flee", "DON'T WALK AWAY!", "WHERE ARE YOU GOING?!", "GET BACK HERE!", "WE'RE NOT DONE YET!", "DON'T RUN FROM US!");
         // Each question is paired by index with the answer immediately below it.
         d("ask", "HE OWES US A COMPUTER, RIGHT?", "IS THAT REALLY THE PC GUY?", "HAS HE EVER BOUGHT US A PC?",
@@ -34,7 +35,8 @@ public class Talk {
         List<String> l = Cfg.d.dialogue.getOrDefault(key, List.of());
         if (l.isEmpty()) l = DEFAULTS.getOrDefault(key, List.of());
         if (key.equals("recognize")) {
-            l = l.stream().filter(line -> !line.equalsIgnoreCase("DON'T WALK AWAY!")).toList();
+            l = l.stream().filter(line -> !line.equalsIgnoreCase("DON'T WALK AWAY!")
+                    && !line.equalsIgnoreCase("BRO! IT'S THE PC GUY!")).toList();   // those are not demands
         }
         // Update an older saved config to the answer wording requested for this exchange.
         if (key.equals("answer")) {
