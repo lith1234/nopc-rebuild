@@ -1,11 +1,8 @@
 package com.nopcnotrade;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.ItemParticleOption;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -85,8 +82,21 @@ public class Crowd {
     }
     static final Map<UUID, ActiveEmote> emotes = new HashMap<>();
 
-    static final ChatFormatting[] COLORS = {ChatFormatting.GREEN, ChatFormatting.AQUA, ChatFormatting.YELLOW, ChatFormatting.GOLD,
-            ChatFormatting.LIGHT_PURPLE, ChatFormatting.RED, ChatFormatting.BLUE, ChatFormatting.DARK_AQUA};
+    // Full spoken sentence displayed above the speaker. This is separate from emotes,
+    // so the existing emote animation remains untouched.
+    private static final class ActiveSpeechBubble {
+        final Villager villager;
+        final UUID displayId;
+        final long startedAt, expiresAt;
+
+        ActiveSpeechBubble(Villager villager, UUID displayId, long startedAt, long expiresAt) {
+            this.villager = villager;
+            this.displayId = displayId;
+            this.startedAt = startedAt;
+            this.expiresAt = expiresAt;
+        }
+    }
+    static final Map<UUID, ActiveSpeechBubble> speechBubbles = new HashMap<>();
 
     static boolean isTarget(ServerPlayer p) {
         return p.getName().getString().equalsIgnoreCase(Cfg.d.targetUsername.trim());
@@ -97,6 +107,7 @@ public class Crowd {
     public static void tick(MinecraftServer s) {
         int tc = s.getTickCount();
         tickEmotes();
+        tickSpeechBubbles();
         processSpeech(tc);   // every tick, so replies to the player are not delayed
         if (tc % 10 != 0) return;
 
@@ -598,28 +609,82 @@ public class Crowd {
         }
     }
 
+    private static String snbtString(String value) {
+        return "\"" + value.replace("\\\\", "\\\\\\\\").replace("\"", "\\\\"")
+                .replace("\\n", "\\\\n").replace("\\r", "\\\\r") + "\"";
+    }
+
+    /** Spawns a vanilla text display containing the complete spoken line. */
+    static void showSpeechBubble(ServerLevel lv, Villager villager, String key, String text) {
+        ActiveSpeechBubble previous = speechBubbles.remove(villager.getUUID());
+        if (previous != null) {
+            Entity old = lv.getEntity(previous.displayId);
+            if (old != null) old.discard();
+        }
+
+        UUID displayId = UUID.randomUUID();
+        String componentJson = "{\\"text\\":" + snbtString(text)
+                + ",\\"color\\":\\"white\\",\\"bold\\":true}";
+        String nbt = "{UUID:" + intArray(displayId) + ",Tags:[\\"nopc_speech\\"],"
+                + "billboard:\\"center\\",text:" + snbtString(componentJson)
+                + ",background:1073741824,shadow:1b,alignment:\\"center\\","
+                + "line_width:240,text_opacity:255b}";
+        runCommand(lv, String.format(Locale.ROOT,
+                "summon minecraft:text_display %.3f %.3f %.3f %s",
+                villager.getX(), villager.getY() + villager.getBbHeight() + 0.65,
+                villager.getZ(), nbt));
+
+        long now = lv.getGameTime();
+        long duration = Math.max(30, Voices.durationTicks(key, text)) + 8L;
+        speechBubbles.put(villager.getUUID(),
+                new ActiveSpeechBubble(villager, displayId, now, now + duration));
+    }
+
+    /** Keeps the bubble over its villager and removes it when the voice line ends. */
+    static void tickSpeechBubbles() {
+        for (var it = speechBubbles.entrySet().iterator(); it.hasNext();) {
+            ActiveSpeechBubble bubble = it.next().getValue();
+            Villager villager = bubble.villager;
+            if (!villager.isAlive() || !(villager.level() instanceof ServerLevel lv)) {
+                it.remove();
+                continue;
+            }
+
+            Entity display = lv.getEntity(bubble.displayId);
+            long now = lv.getGameTime();
+            if (now >= bubble.expiresAt || (display == null && now - bubble.startedAt > 10)) {
+                if (display != null) display.discard();
+                it.remove();
+                continue;
+            }
+            if (display != null) {
+                display.setPos(villager.getX(),
+                        villager.getY() + villager.getBbHeight() + 0.65,
+                        villager.getZ());
+            }
+        }
+    }
+
     /** Removes any leftover emote display entities (e.g. when the server stops mid-emote). */
     public static void cleanup(MinecraftServer s) {
         emotes.clear();
+        speechBubbles.clear();
         try {
             s.getCommands().performPrefixedCommand(
                     s.createCommandSourceStack().withSuppressedOutput(), "kill @e[tag=nopc_emote]");
+            s.getCommands().performPrefixedCommand(
+                    s.createCommandSourceStack().withSuppressedOutput(), "kill @e[tag=nopc_speech]");
         } catch (Exception ignored) {
         }
     }
 
     static void playSpeechNow(ServerLevel lv, Villager villager, String key, String text) {
         startEmote(lv, villager, key);
+        showSpeechBubble(lv, villager, key, text);
         boolean calmLine = key.equals("spot") || key.equals("recognize") || key.equals("shout") || key.equals("chant")
                 || key.equals("ask") || key.equals("answer");
         if (!calmLine) villager.setUnhappyCounter(40);               // shakes his head
         if (key.equals("shout") || key.equals("chant") || key.equals("flee")) hop(villager);
-        int n = Math.floorMod(villager.getUUID().hashCode(), 100);
-        MutableComponent message = Component.literal("[Villager #" + n + "]: ")
-                .withStyle(COLORS[n % COLORS.length], ChatFormatting.BOLD)
-                .append(Component.literal(text).withStyle(ChatFormatting.WHITE));
-        for (ServerPlayer sp : lv.players())
-            if (sp.distanceToSqr(villager) < 1024) sp.sendSystemMessage(message);
 
         SoundEvent voice = Voices.find(key, text);
         if (voice != null) lv.playSound(null, villager.blockPosition(), voice, SoundSource.VOICE, 2f, 1f);
