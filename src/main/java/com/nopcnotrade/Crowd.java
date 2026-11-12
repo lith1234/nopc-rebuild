@@ -14,6 +14,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.behavior.EntityTracker;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
@@ -37,17 +38,31 @@ public class Crowd {
     static long nextSpeechTick = 0;
     static long lastCrowdLine = -10000;
 
-    // Short-lived animated emotes rendered with vanilla particles above the speaking villager.
+    // Short-lived floating emotes: a vanilla Display entity (item icon or text) that follows the
+    // speaking villager's head, pops in, rises slowly and shrinks away. Works with vanilla clients.
+    // If the display entity cannot be spawned, falls back to the old particle burst.
+    static final int EMOTE_LIFE = 44;
     private static final class ActiveEmote {
         final Villager villager;
-        final ParticleOptions particle;
-        final long expiresAt;
+        final ParticleOptions fallback;
+        final UUID displayId;
+        final String look;      // "item" or "text"
+        final String data;      // NBT fragment for the display
+        final float scale;
+        final long startedAt, expiresAt;
         long nextPulse;
+        int phase = 0;          // 0 = spawned, 1 = popped in, 2 = shrinking
 
-        ActiveEmote(Villager villager, ParticleOptions particle, long startTick) {
+        ActiveEmote(Villager villager, ParticleOptions fallback, UUID displayId, String look, String data,
+                    float scale, long startTick) {
             this.villager = villager;
-            this.particle = particle;
-            this.expiresAt = startTick + 26;
+            this.fallback = fallback;
+            this.displayId = displayId;
+            this.look = look;
+            this.data = data;
+            this.scale = scale;
+            this.startedAt = startTick;
+            this.expiresAt = startTick + EMOTE_LIFE;
             this.nextPulse = startTick;
         }
     }
@@ -266,8 +281,8 @@ public class Crowd {
         queueSpeech(villager, key, text);
     }
 
-    static void startEmote(ServerLevel lv, Villager villager, String key) {
-        ParticleOptions particle = switch (key) {
+    private static ParticleOptions fallbackParticle(String key) {
+        return switch (key) {
             case "shout", "trade" -> ParticleTypes.ANGRY_VILLAGER;
             case "recognize" -> ParticleTypes.NOTE;
             case "chant" -> ParticleTypes.CRIT;
@@ -281,28 +296,132 @@ public class Crowd {
             case "diamond" -> new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.DIAMOND));
             default -> ParticleTypes.HAPPY_VILLAGER;
         };
-        long now = lv.getGameTime();
-        emotes.put(villager.getUUID(), new ActiveEmote(villager, particle, now));
     }
 
-    /** Emit a small particle burst every 3 ticks so the emote appears to float above the villager. */
+    private static String itemData(String id) {
+        return "item:{id:\"" + id + "\",count:1},item_display:\"gui\"";
+    }
+
+    private static String textData(String text, String color) {
+        return "text:{text:\"" + text + "\",color:\"" + color + "\",bold:true},background:0,shadow:1b,alignment:\"center\"";
+    }
+
+    private static String tf(float scale, float y) {
+        return "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,"
+                + y + "f,0f],scale:[" + scale + "f," + scale + "f," + scale + "f]}";
+    }
+
+    private static String intArray(UUID id) {
+        long m = id.getMostSignificantBits(), l = id.getLeastSignificantBits();
+        return "[I;" + (int) (m >> 32) + "," + (int) m + "," + (int) (l >> 32) + "," + (int) l + "]";
+    }
+
+    private static void runCommand(ServerLevel lv, String command) {
+        try {
+            var server = lv.getServer();
+            server.getCommands().performPrefixedCommand(
+                    server.createCommandSourceStack().withLevel(lv).withSuppressedOutput(), command);
+        } catch (Exception ignored) {
+            // Emotes are cosmetic: never let them break the game.
+        }
+    }
+
+    static void startEmote(ServerLevel lv, Villager villager, String key) {
+        // Only one emote per villager at a time.
+        ActiveEmote old = emotes.remove(villager.getUUID());
+        if (old != null) {
+            Entity e = lv.getEntity(old.displayId);
+            if (e != null) e.discard();
+        }
+
+        String look, data;
+        float scale;
+        switch (key) {
+            case "shout" -> { look = "text"; data = textData("!!", "red"); scale = 1.5f; }
+            case "trade" -> { look = "text"; data = textData("NO PC!", "red"); scale = 1.0f; }
+            case "recognize" -> { look = "text"; data = textData("\u266A", "aqua"); scale = 1.8f; }
+            case "chant" -> { look = "text"; data = textData("RTX", "green"); scale = 1.2f; }
+            case "emerald" -> { look = "item"; data = itemData("minecraft:emerald"); scale = 0.7f; }
+            case "furnace" -> { look = "item"; data = itemData("minecraft:furnace"); scale = 0.7f; }
+            case "toaster" -> { look = "item"; data = itemData("nopcnotrade:toaster"); scale = 0.8f; }
+            case "dirt" -> { look = "item"; data = itemData("minecraft:dirt"); scale = 0.7f; }
+            case "coal" -> { look = "item"; data = itemData("minecraft:coal"); scale = 0.7f; }
+            case "redstone" -> { look = "item"; data = itemData("minecraft:redstone"); scale = 0.7f; }
+            case "iron_ingot" -> { look = "item"; data = itemData("minecraft:iron_ingot"); scale = 0.7f; }
+            case "diamond" -> { look = "item"; data = itemData("minecraft:diamond"); scale = 0.7f; }
+            default -> { look = "text"; data = textData("!", "yellow"); scale = 1.5f; }
+        }
+
+        UUID displayId = UUID.randomUUID();
+        long now = lv.getGameTime();
+        double x = villager.getX();
+        double y = villager.getY() + villager.getBbHeight() + 0.45;
+        double z = villager.getZ();
+        String type = look.equals("item") ? "minecraft:item_display" : "minecraft:text_display";
+        String nbt = "{UUID:" + intArray(displayId) + ",Tags:[\"nopc_emote\"],billboard:\"center\","
+                + "teleport_duration:3,brightness:{sky:15,block:15}," + data + "," + tf(0.01f, 0f) + "}";
+        runCommand(lv, String.format(Locale.ROOT, "summon %s %.3f %.3f %.3f %s", type, x, y, z, nbt));
+
+        emotes.put(villager.getUUID(),
+                new ActiveEmote(villager, fallbackParticle(key), displayId, look, data, scale, now));
+    }
+
+    /** Keeps each emote glued above its villager's head and plays pop-in / float / shrink animations. */
     static void tickEmotes() {
         for (var it = emotes.entrySet().iterator(); it.hasNext();) {
             var entry = it.next();
             ActiveEmote emote = entry.getValue();
             Villager villager = emote.villager;
-            if (!villager.isAlive() || !(villager.level() instanceof ServerLevel lv)
-                    || lv.getGameTime() >= emote.expiresAt) {
+            if (!villager.isAlive() || !(villager.level() instanceof ServerLevel lv)) {
                 it.remove();
                 continue;
             }
             long now = lv.getGameTime();
-            if (now < emote.nextPulse) continue;
+            Entity display = lv.getEntity(emote.displayId);
+
+            if (now >= emote.expiresAt) {
+                if (display != null) display.discard();
+                it.remove();
+                continue;
+            }
+
             double x = villager.getX();
-            double y = villager.getY() + villager.getBbHeight() + 0.48;
+            double y = villager.getY() + villager.getBbHeight() + 0.45;
             double z = villager.getZ();
-            lv.sendParticles(emote.particle, x, y, z, 2, 0.09, 0.08, 0.09, 0.015);
-            emote.nextPulse = now + 3;
+
+            if (display == null) {
+                // The display entity did not appear: use the old particle burst instead.
+                if (now - emote.startedAt >= 2 && now >= emote.nextPulse) {
+                    lv.sendParticles(emote.fallback, x, y + 0.03, z, 2, 0.09, 0.08, 0.09, 0.015);
+                    emote.nextPulse = now + 3;
+                }
+                continue;
+            }
+
+            display.setPos(x, y, z);
+            String sel = emote.displayId.toString();
+
+            if (emote.phase == 0 && now - emote.startedAt >= 1) {
+                // Pop in and float up.
+                runCommand(lv, "data merge entity " + sel + " {start_interpolation:0,interpolation_duration:6,"
+                        + tf(emote.scale, 0.18f) + "}");
+                emote.phase = 1;
+            } else if (emote.phase == 1 && emote.expiresAt - now <= 6) {
+                // Shrink away.
+                runCommand(lv, "data merge entity " + sel + " {start_interpolation:0,interpolation_duration:6,"
+                        + tf(0.01f, 0.35f) + "}");
+                emote.phase = 2;
+            }
+        }
+    }
+
+    /** Removes any leftover emote display entities (e.g. when the server stops mid-emote). */
+    public static void cleanup(MinecraftServer s) {
+        emotes.clear();
+        try {
+            s.getCommands().performPrefixedCommand(
+                    s.createCommandSourceStack().withSuppressedOutput(), "kill @e[tag=nopc_emote]");
+        } catch (Exception ignored) {
         }
     }
 

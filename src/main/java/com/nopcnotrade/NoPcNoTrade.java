@@ -1,6 +1,7 @@
 package com.nopcnotrade;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
@@ -26,6 +27,7 @@ public class NoPcNoTrade implements ModInitializer {
                 new Item(new Item.Properties().stacksTo(16).setId(ResourceKey.create(Registries.ITEM, id))));
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.INGREDIENTS).register(e -> e.accept(TOASTER));
         ServerTickEvents.END_SERVER_TICK.register(Crowd::tick);
+        ServerLifecycleEvents.SERVER_STOPPING.register(Crowd::cleanup);
         UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> Crowd.interact(player, world, hand, entity));
     }
 }
