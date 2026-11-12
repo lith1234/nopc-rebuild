@@ -103,6 +103,17 @@ public class Crowd {
                 var en = it.next();
                 if (en.getValue() <= now) {
                     UUID id = en.getKey();
+                    Entity entity = lv.getEntity(id);
+                    if (entity instanceof Villager villager && villager.isAlive()
+                            && villager.distanceToSqr(p) <= 100.0) {
+                        // Keep the protest active while the target remains within 10 blocks.
+                        en.setValue(now + 20);
+                        continue;
+                    }
+                    if (entity instanceof Villager villager) {
+                        villager.getBrain().eraseMemory(MemoryModuleType.WALK_TARGET);
+                        villager.getBrain().eraseMemory(MemoryModuleType.LOOK_TARGET);
+                    }
                     calm.put(id, now + 600);
                     commandedSlots.remove(id);
                     lastPathUpdate.remove(id);
@@ -166,7 +177,7 @@ public class Crowd {
         }
 
         // 2) Gradual recruitment once the call has been made: at most 3 new villagers per second.
-        if (sec && phase.ordinal() >= Phase.CALLING.ordinal()) {
+        if (sec && (phase == Phase.GATHERING || phase == Phase.PROTEST)) {
             int add = 0;
             for (Villager v : vs) {
                 if (active.size() >= Cfg.d.maxCrowd || add >= 3) break;
@@ -179,7 +190,7 @@ public class Crowd {
         List<Villager> crowd = new ArrayList<>();
         for (Villager v : vs) if (active.containsKey(v.getUUID())) crowd.add(v);
         double closest = crowd.isEmpty() ? 0 : Math.sqrt(crowd.get(0).distanceToSqr(targetPlayer));
-        boolean fleeing = (phase == Phase.GATHERING || phase == Phase.PROTEST) && closest > 5.5;
+        boolean fleeing = (phase == Phase.GATHERING || phase == Phase.PROTEST) && closest >= 10.0;
         // They run when called and when the target tries to get away, and walk once they are around him.
         float speed = fleeing ? 1.1f : (phase == Phase.CALLING || phase == Phase.GATHERING ? 1.0f : 0.85f);
 
@@ -195,9 +206,9 @@ public class Crowd {
             brain.setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(p, true));
             if (phase == Phase.SPOTTED) continue;   // the first one just stands there staring
 
-            if (d2 <= 2.25) {
-                // Let the villager stop naturally once it reaches its assigned place.
-                arrived.add(id);
+            if (d2 <= 2.25) arrived.add(id);
+            if (d2 <= 0.36) {
+                // They may idle at their slot, but re-path if vanilla wandering pulls them away.
                 brain.eraseMemory(MemoryModuleType.WALK_TARGET);
                 commandedSlots.remove(id);
                 lastPathUpdate.remove(id);
@@ -206,8 +217,9 @@ public class Crowd {
                 Vec3 previous = commandedSlots.get(id);
                 boolean slotMoved = previous == null || previous.distanceToSqr(slot) > 2.25;
                 boolean retryPath = tc - lastPathUpdate.getOrDefault(id, 0L) >= 60;
-                if (slotMoved || retryPath) {
-                    // Do not call Navigation.moveTo as well: Brain/WalkTarget owns pathfinding.
+                boolean needsHold = arrived.contains(id) && !brain.hasMemoryValue(MemoryModuleType.WALK_TARGET);
+                if (slotMoved || retryPath || needsHold) {
+                    // Keep a short leash on arrived villagers so vanilla idle wandering cannot scatter the crowd.
                     brain.setMemory(MemoryModuleType.WALK_TARGET, new WalkTarget(slot, speed, 1));
                     commandedSlots.put(id, slot);
                     lastPathUpdate.put(id, (long) tc);
@@ -230,7 +242,7 @@ public class Crowd {
             lastFleeLine = now;
             lastCrowdLine = now;
             Villager shouter = crowd.get(0);
-            queueSpeech(shouter, "flee", pickUnique(lv, "flee"), 2);
+            queueSpeech(shouter, "flee", "DON'T WALK AWAY!", 2);
             processSpeech(tc);
         }
 
@@ -247,7 +259,7 @@ public class Crowd {
                 sayText(lv, who, "recognize", pickUnique(lv, "recognize"));
                 done = true;
             } else {
-                int turn = chantTurn++ % 3;
+                int turn = chantTurn++ % 2;
                 who = crowd.get(lv.random.nextInt(crowd.size()));
                 if (turn == 1 && crowd.size() >= 2) {
                     String[] ex = pickExchange(lv);
@@ -581,10 +593,7 @@ public class Crowd {
         if (key.equals("shout") || key.equals("chant") || key.equals("flee")) hop(villager);
 
         SoundEvent voice = Voices.find(key, text);
+        // No vanilla villager grunt fallback: if a custom voice clip is missing, stay silent.
         if (voice != null) lv.playSound(null, villager.blockPosition(), voice, SoundSource.VOICE, 2f, 1f);
-        else lv.playSound(null, villager.blockPosition(),
-                key.equals("spot") || key.equals("recognize") || key.equals("ask") || key.equals("answer")
-                        ? SoundEvents.VILLAGER_AMBIENT : SoundEvents.VILLAGER_NO,
-                SoundSource.NEUTRAL, 1f, 0.8f + lv.random.nextFloat() * 0.4f);
     }
 }
