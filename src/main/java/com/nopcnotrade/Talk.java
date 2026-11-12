@@ -26,14 +26,24 @@ public class Talk {
         d("ask", "HE OWES US A COMPUTER, RIGHT?", "IS THAT REALLY THE PC GUY?", "HAS HE EVER BOUGHT US A PC?",
                 "HOW LONG HAVE WE BEEN WAITING?", "WHAT DO WE WANT?", "DOES HE EVEN HAVE AN RTX 5090?",
                 "SHOULD WE TRADE WITH HIM?", "WILL HE EVER PAY UP?", "CAN WE RUN SHADERS WITHOUT A PC?");
-        d("answer", "YES, HE DOES!", "YES, HE IS! LOOK AT HIM!", "NOT ONCE!",
+        d("answer", "YES, HE DOES!", "YES, YOU STUPID! LOOK AT HIM!", "NOT ONCE!",
                 "SIX LONG MONTHS!", "COMPUTERS! WHEN? NOW!", "I DOUBT IT. HE PROBABLY HAS A TOASTER!",
                 "NO PC, NO TRADE!", "NOT IF WE LET HIM LEAVE!", "NO, THAT'S THE WHOLE PROBLEM!");
     }
 
     public static List<String> lines(String key) {
         List<String> l = Cfg.d.dialogue.getOrDefault(key, List.of());
-        return l.isEmpty() ? DEFAULTS.getOrDefault(key, List.of()) : l;
+        if (l.isEmpty()) l = DEFAULTS.getOrDefault(key, List.of());
+        // Keep "don't walk away" exclusive to the actual flee reaction, not random recognition chatter.
+        if (key.equals("recognize")) {
+            l = l.stream().filter(line -> !line.equalsIgnoreCase("DON'T WALK AWAY!")).toList();
+        }
+        // Upgrade the old default response in existing config files without discarding custom dialogue.
+        if (key.equals("answer")) {
+            l = l.stream().map(line -> line.equals("YES, HE IS! LOOK AT HIM!")
+                    ? "YES, YOU STUPID! LOOK AT HIM!" : line).toList();
+        }
+        return l;
     }
 
     public static String pick(String key, RandomSource rnd) {
