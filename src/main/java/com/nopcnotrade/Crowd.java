@@ -455,9 +455,9 @@ public class Crowd {
     }
 
     private static String textData(String text, String color) {
-        String componentJson = "{\"text\":" + snbtString(text)
-                + ",\"color\":" + snbtString(color) + ",\"bold\":true}";
-        return "text:" + snbtString(componentJson)
+        // Minecraft 1.21.5+ expects text components as SNBT compounds, not JSON strings.
+        return "text:{text:" + snbtString(text)
+                + ",color:" + snbtString(color) + ",bold:1b}"
                 + ",background:0,shadow:1b,alignment:\"center\"";
     }
 
