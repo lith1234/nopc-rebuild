@@ -1,0 +1,38 @@
+name: Build mod
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: current
+      - name: Pick latest Fabric versions for 1.21.11
+        run: |
+          python3 - <<'PY'
+          import json, re, urllib.request, urllib.parse
+          def get(u):
+              return urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': 'nopcnotrade-build'})).read().decode()
+          q = urllib.parse.quote
+          loader = [x for x in json.loads(get('https://meta.fabricmc.net/v2/versions/loader')) if x['stable']][0]['version']
+          fapi = json.loads(get('https://api.modrinth.com/v2/project/fabric-api/version?game_versions=' + q('["1.21.11"]') + '&loaders=' + q('["fabric"]')))[0]['version_number']
+          loom = re.search(r'<release>([^<]+)</release>', get('https://maven.fabricmc.net/net/fabricmc/fabric-loom/maven-metadata.xml')).group(1)
+          open('gradle.properties', 'w').write(
+              'org.gradle.jvmargs=-Xmx2G\nmod_version=1.0.0\nminecraft_version=1.21.11\n'
+              f'loader_version={loader}\nfabric_version={fapi}\nloom_version={loom}\n')
+          print(loader, fapi, loom)
+          PY
+      - run: gradle build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nopcnotrade-mod
+          path: |
+            build/libs/nopcnotrade-*.jar
+            !build/libs/*-sources.jar
