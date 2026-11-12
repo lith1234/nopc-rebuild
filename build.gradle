@@ -5,6 +5,13 @@ plugins {
 version = mod_version
 group = 'com.nopcnotrade'
 base { archivesName = 'nopcnotrade' }
+
+loom {
+    mixin {
+        useLegacyMixinAp = true
+        defaultRefmapName = "nopcnotrade.refmap.json"
+    }
+}
 repositories { mavenCentral() }
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"

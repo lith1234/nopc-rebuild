@@ -28,7 +28,7 @@ abstract class VillagerSoundMuteMixin {
     }
 
     @Inject(
-            method = "play(Lnet/minecraft/client/resources/sounds/SoundInstance;I)V",
+            method = "playDelayed(Lnet/minecraft/client/resources/sounds/SoundInstance;I)V",
             at = @At("HEAD"),
             cancellable = true
     )
