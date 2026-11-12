@@ -1,8 +1,5 @@
 package com.nopcnotrade;
 
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -58,17 +55,15 @@ public class Crowd {
     static final int EMOTE_LIFE = 44;
     private static final class ActiveEmote {
         final Villager villager;
-        final ParticleOptions fallback;
         final String displayTag;
         final float scale;
         final long startedAt, expiresAt;
         boolean displaySpawned;
         int phase = 0;          // 0 = spawned, 1 = popped in, 2 = shrinking
 
-        ActiveEmote(Villager villager, ParticleOptions fallback, String displayTag,
+        ActiveEmote(Villager villager, String displayTag,
                     float scale, long startTick, boolean displaySpawned) {
             this.villager = villager;
-            this.fallback = fallback;
             this.displayTag = displayTag;
             this.scale = scale;
             this.startedAt = startTick;
@@ -450,17 +445,6 @@ public class Crowd {
         processSpeech(lv.getServer().getTickCount());
     }
 
-    private static ParticleOptions fallbackParticle(String key) {
-        return switch (key) {
-            case "shout", "trade", "flee" -> ParticleTypes.ANGRY_VILLAGER;
-            case "recognize" -> ParticleTypes.NOTE;
-            case "chant" -> ParticleTypes.CRIT;
-            case "emerald", "furnace", "toaster", "dirt", "coal", "redstone", "iron_ingot", "diamond" ->
-                    ParticleTypes.HAPPY_VILLAGER;
-            default -> ParticleTypes.HAPPY_VILLAGER;
-        };
-    }
-
     private static String itemData(String id) {
         return "item:{id:\"" + id + "\",count:1},item_display:\"gui\"";
     }
@@ -526,7 +510,7 @@ public class Crowd {
                 "summon minecraft:text_display %.3f %.3f %.3f %s", x, y, z, nbt));
 
         emotes.put(villager.getUUID(),
-                new ActiveEmote(villager, fallbackParticle(key), displayTag, scale, now, spawned));
+                new ActiveEmote(villager, displayTag, scale, now, spawned));
     }
 
     /** Keeps each emote glued above its villager's head and plays pop-in / float / shrink animations. */
@@ -578,11 +562,6 @@ public class Crowd {
                 }
             }
 
-            // If summon or any later display update failed, use the original vanilla particles.
-            if (!emote.displaySpawned && now >= emote.nextPulse) {
-                lv.sendParticles(emote.fallback, x, y + 0.03, z, 2, 0.09, 0.08, 0.09, 0.015);
-                emote.nextPulse = now + 3;
-            }
         }
     }
 
