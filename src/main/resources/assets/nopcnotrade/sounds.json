@@ -1,272 +1,402 @@
 {
- "shout_1": {
-  "sounds": [
-   "nopcnotrade:voice/shout_1"
-  ]
- },
- "shout_2": {
-  "sounds": [
-   "nopcnotrade:voice/shout_2"
-  ]
- },
- "shout_3": {
-  "sounds": [
-   "nopcnotrade:voice/shout_3"
-  ]
- },
- "shout_4": {
-  "sounds": [
-   "nopcnotrade:voice/shout_4"
-  ]
- },
- "shout_5": {
-  "sounds": [
-   "nopcnotrade:voice/shout_5"
-  ]
- },
- "recognize_1": {
-  "sounds": [
-   "nopcnotrade:voice/recognize_1"
-  ]
- },
- "recognize_2": {
-  "sounds": [
-   "nopcnotrade:voice/recognize_2"
-  ]
- },
- "recognize_3": {
-  "sounds": [
-   "nopcnotrade:voice/recognize_3"
-  ]
- },
- "recognize_4": {
-  "sounds": [
-   "nopcnotrade:voice/recognize_4"
-  ]
- },
- "recognize_5": {
-  "sounds": [
-   "nopcnotrade:voice/recognize_5"
-  ]
- },
- "recognize_6": {
-  "sounds": [
-   "nopcnotrade:voice/recognize_6"
-  ]
- },
- "recognize_7": {
-  "sounds": [
-   "nopcnotrade:voice/recognize_7"
-  ]
- },
- "trade_1": {
-  "sounds": [
-   "nopcnotrade:voice/trade_1"
-  ]
- },
- "trade_2": {
-  "sounds": [
-   "nopcnotrade:voice/trade_2"
-  ]
- },
- "trade_3": {
-  "sounds": [
-   "nopcnotrade:voice/trade_3"
-  ]
- },
- "trade_4": {
-  "sounds": [
-   "nopcnotrade:voice/trade_4"
-  ]
- },
- "trade_5": {
-  "sounds": [
-   "nopcnotrade:voice/trade_5"
-  ]
- },
- "trade_6": {
-  "sounds": [
-   "nopcnotrade:voice/trade_6"
-  ]
- },
- "trade_7": {
-  "sounds": [
-   "nopcnotrade:voice/trade_7"
-  ]
- },
- "trade_8": {
-  "sounds": [
-   "nopcnotrade:voice/trade_8"
-  ]
- },
- "chant_1": {
-  "sounds": [
-   "nopcnotrade:voice/chant_1"
-  ]
- },
- "chant_2": {
-  "sounds": [
-   "nopcnotrade:voice/chant_2"
-  ]
- },
- "chant_3": {
-  "sounds": [
-   "nopcnotrade:voice/chant_3"
-  ]
- },
- "chant_4": {
-  "sounds": [
-   "nopcnotrade:voice/chant_4"
-  ]
- },
- "emerald_1": {
-  "sounds": [
-   "nopcnotrade:voice/emerald_1"
-  ]
- },
- "emerald_2": {
-  "sounds": [
-   "nopcnotrade:voice/emerald_2"
-  ]
- },
- "emerald_3": {
-  "sounds": [
-   "nopcnotrade:voice/emerald_3"
-  ]
- },
- "emerald_4": {
-  "sounds": [
-   "nopcnotrade:voice/emerald_4"
-  ]
- },
- "emerald_5": {
-  "sounds": [
-   "nopcnotrade:voice/emerald_5"
-  ]
- },
- "emerald_6": {
-  "sounds": [
-   "nopcnotrade:voice/emerald_6"
-  ]
- },
- "emerald_7": {
-  "sounds": [
-   "nopcnotrade:voice/emerald_7"
-  ]
- },
- "furnace_1": {
-  "sounds": [
-   "nopcnotrade:voice/furnace_1"
-  ]
- },
- "furnace_2": {
-  "sounds": [
-   "nopcnotrade:voice/furnace_2"
-  ]
- },
- "furnace_3": {
-  "sounds": [
-   "nopcnotrade:voice/furnace_3"
-  ]
- },
- "furnace_4": {
-  "sounds": [
-   "nopcnotrade:voice/furnace_4"
-  ]
- },
- "furnace_5": {
-  "sounds": [
-   "nopcnotrade:voice/furnace_5"
-  ]
- },
- "furnace_6": {
-  "sounds": [
-   "nopcnotrade:voice/furnace_6"
-  ]
- },
- "toaster_1": {
-  "sounds": [
-   "nopcnotrade:voice/toaster_1"
-  ]
- },
- "toaster_2": {
-  "sounds": [
-   "nopcnotrade:voice/toaster_2"
-  ]
- },
- "toaster_3": {
-  "sounds": [
-   "nopcnotrade:voice/toaster_3"
-  ]
- },
- "toaster_4": {
-  "sounds": [
-   "nopcnotrade:voice/toaster_4"
-  ]
- },
- "toaster_5": {
-  "sounds": [
-   "nopcnotrade:voice/toaster_5"
-  ]
- },
- "toaster_6": {
-  "sounds": [
-   "nopcnotrade:voice/toaster_6"
-  ]
- },
- "dirt_1": {
-  "sounds": [
-   "nopcnotrade:voice/dirt_1"
-  ]
- },
- "dirt_2": {
-  "sounds": [
-   "nopcnotrade:voice/dirt_2"
-  ]
- },
- "coal_1": {
-  "sounds": [
-   "nopcnotrade:voice/coal_1"
-  ]
- },
- "coal_2": {
-  "sounds": [
-   "nopcnotrade:voice/coal_2"
-  ]
- },
- "redstone_1": {
-  "sounds": [
-   "nopcnotrade:voice/redstone_1"
-  ]
- },
- "redstone_2": {
-  "sounds": [
-   "nopcnotrade:voice/redstone_2"
-  ]
- },
- "iron_ingot_1": {
-  "sounds": [
-   "nopcnotrade:voice/iron_ingot_1"
-  ]
- },
- "iron_ingot_2": {
-  "sounds": [
-   "nopcnotrade:voice/iron_ingot_2"
-  ]
- },
- "diamond_1": {
-  "sounds": [
-   "nopcnotrade:voice/diamond_1"
-  ]
- },
- "diamond_2": {
-  "sounds": [
-   "nopcnotrade:voice/diamond_2"
-  ]
- },
- "diamond_3": {
-  "sounds": [
-   "nopcnotrade:voice/diamond_3"
-  ]
- }
+  "shout_1": {
+    "sounds": [
+      "nopcnotrade:voice/shout_1"
+    ]
+  },
+  "shout_2": {
+    "sounds": [
+      "nopcnotrade:voice/shout_2"
+    ]
+  },
+  "shout_3": {
+    "sounds": [
+      "nopcnotrade:voice/shout_3"
+    ]
+  },
+  "shout_4": {
+    "sounds": [
+      "nopcnotrade:voice/shout_4"
+    ]
+  },
+  "shout_5": {
+    "sounds": [
+      "nopcnotrade:voice/shout_5"
+    ]
+  },
+  "recognize_1": {
+    "sounds": [
+      "nopcnotrade:voice/recognize_1"
+    ]
+  },
+  "recognize_2": {
+    "sounds": [
+      "nopcnotrade:voice/recognize_2"
+    ]
+  },
+  "recognize_3": {
+    "sounds": [
+      "nopcnotrade:voice/recognize_3"
+    ]
+  },
+  "recognize_4": {
+    "sounds": [
+      "nopcnotrade:voice/recognize_4"
+    ]
+  },
+  "recognize_5": {
+    "sounds": [
+      "nopcnotrade:voice/recognize_5"
+    ]
+  },
+  "recognize_6": {
+    "sounds": [
+      "nopcnotrade:voice/recognize_6"
+    ]
+  },
+  "recognize_7": {
+    "sounds": [
+      "nopcnotrade:voice/recognize_7"
+    ]
+  },
+  "trade_1": {
+    "sounds": [
+      "nopcnotrade:voice/trade_1"
+    ]
+  },
+  "trade_2": {
+    "sounds": [
+      "nopcnotrade:voice/trade_2"
+    ]
+  },
+  "trade_3": {
+    "sounds": [
+      "nopcnotrade:voice/trade_3"
+    ]
+  },
+  "trade_4": {
+    "sounds": [
+      "nopcnotrade:voice/trade_4"
+    ]
+  },
+  "trade_5": {
+    "sounds": [
+      "nopcnotrade:voice/trade_5"
+    ]
+  },
+  "trade_6": {
+    "sounds": [
+      "nopcnotrade:voice/trade_6"
+    ]
+  },
+  "trade_7": {
+    "sounds": [
+      "nopcnotrade:voice/trade_7"
+    ]
+  },
+  "trade_8": {
+    "sounds": [
+      "nopcnotrade:voice/trade_8"
+    ]
+  },
+  "chant_1": {
+    "sounds": [
+      "nopcnotrade:voice/chant_1"
+    ]
+  },
+  "chant_2": {
+    "sounds": [
+      "nopcnotrade:voice/chant_2"
+    ]
+  },
+  "chant_3": {
+    "sounds": [
+      "nopcnotrade:voice/chant_3"
+    ]
+  },
+  "chant_4": {
+    "sounds": [
+      "nopcnotrade:voice/chant_4"
+    ]
+  },
+  "emerald_1": {
+    "sounds": [
+      "nopcnotrade:voice/emerald_1"
+    ]
+  },
+  "emerald_2": {
+    "sounds": [
+      "nopcnotrade:voice/emerald_2"
+    ]
+  },
+  "emerald_3": {
+    "sounds": [
+      "nopcnotrade:voice/emerald_3"
+    ]
+  },
+  "emerald_4": {
+    "sounds": [
+      "nopcnotrade:voice/emerald_4"
+    ]
+  },
+  "emerald_5": {
+    "sounds": [
+      "nopcnotrade:voice/emerald_5"
+    ]
+  },
+  "emerald_6": {
+    "sounds": [
+      "nopcnotrade:voice/emerald_6"
+    ]
+  },
+  "emerald_7": {
+    "sounds": [
+      "nopcnotrade:voice/emerald_7"
+    ]
+  },
+  "furnace_1": {
+    "sounds": [
+      "nopcnotrade:voice/furnace_1"
+    ]
+  },
+  "furnace_2": {
+    "sounds": [
+      "nopcnotrade:voice/furnace_2"
+    ]
+  },
+  "furnace_3": {
+    "sounds": [
+      "nopcnotrade:voice/furnace_3"
+    ]
+  },
+  "furnace_4": {
+    "sounds": [
+      "nopcnotrade:voice/furnace_4"
+    ]
+  },
+  "furnace_5": {
+    "sounds": [
+      "nopcnotrade:voice/furnace_5"
+    ]
+  },
+  "furnace_6": {
+    "sounds": [
+      "nopcnotrade:voice/furnace_6"
+    ]
+  },
+  "toaster_1": {
+    "sounds": [
+      "nopcnotrade:voice/toaster_1"
+    ]
+  },
+  "toaster_2": {
+    "sounds": [
+      "nopcnotrade:voice/toaster_2"
+    ]
+  },
+  "toaster_3": {
+    "sounds": [
+      "nopcnotrade:voice/toaster_3"
+    ]
+  },
+  "toaster_4": {
+    "sounds": [
+      "nopcnotrade:voice/toaster_4"
+    ]
+  },
+  "toaster_5": {
+    "sounds": [
+      "nopcnotrade:voice/toaster_5"
+    ]
+  },
+  "toaster_6": {
+    "sounds": [
+      "nopcnotrade:voice/toaster_6"
+    ]
+  },
+  "dirt_1": {
+    "sounds": [
+      "nopcnotrade:voice/dirt_1"
+    ]
+  },
+  "dirt_2": {
+    "sounds": [
+      "nopcnotrade:voice/dirt_2"
+    ]
+  },
+  "coal_1": {
+    "sounds": [
+      "nopcnotrade:voice/coal_1"
+    ]
+  },
+  "coal_2": {
+    "sounds": [
+      "nopcnotrade:voice/coal_2"
+    ]
+  },
+  "redstone_1": {
+    "sounds": [
+      "nopcnotrade:voice/redstone_1"
+    ]
+  },
+  "redstone_2": {
+    "sounds": [
+      "nopcnotrade:voice/redstone_2"
+    ]
+  },
+  "iron_ingot_1": {
+    "sounds": [
+      "nopcnotrade:voice/iron_ingot_1"
+    ]
+  },
+  "iron_ingot_2": {
+    "sounds": [
+      "nopcnotrade:voice/iron_ingot_2"
+    ]
+  },
+  "diamond_1": {
+    "sounds": [
+      "nopcnotrade:voice/diamond_1"
+    ]
+  },
+  "diamond_2": {
+    "sounds": [
+      "nopcnotrade:voice/diamond_2"
+    ]
+  },
+  "diamond_3": {
+    "sounds": [
+      "nopcnotrade:voice/diamond_3"
+    ]
+  },
+  "spot_1": {
+    "sounds": [
+      "nopcnotrade:voice/spot_1"
+    ]
+  },
+  "spot_2": {
+    "sounds": [
+      "nopcnotrade:voice/spot_2"
+    ]
+  },
+  "spot_3": {
+    "sounds": [
+      "nopcnotrade:voice/spot_3"
+    ]
+  },
+  "flee_1": {
+    "sounds": [
+      "nopcnotrade:voice/flee_1"
+    ]
+  },
+  "flee_2": {
+    "sounds": [
+      "nopcnotrade:voice/flee_2"
+    ]
+  },
+  "flee_3": {
+    "sounds": [
+      "nopcnotrade:voice/flee_3"
+    ]
+  },
+  "flee_4": {
+    "sounds": [
+      "nopcnotrade:voice/flee_4"
+    ]
+  },
+  "flee_5": {
+    "sounds": [
+      "nopcnotrade:voice/flee_5"
+    ]
+  },
+  "ask_1": {
+    "sounds": [
+      "nopcnotrade:voice/ask_1"
+    ]
+  },
+  "ask_2": {
+    "sounds": [
+      "nopcnotrade:voice/ask_2"
+    ]
+  },
+  "ask_3": {
+    "sounds": [
+      "nopcnotrade:voice/ask_3"
+    ]
+  },
+  "ask_4": {
+    "sounds": [
+      "nopcnotrade:voice/ask_4"
+    ]
+  },
+  "ask_5": {
+    "sounds": [
+      "nopcnotrade:voice/ask_5"
+    ]
+  },
+  "ask_6": {
+    "sounds": [
+      "nopcnotrade:voice/ask_6"
+    ]
+  },
+  "ask_7": {
+    "sounds": [
+      "nopcnotrade:voice/ask_7"
+    ]
+  },
+  "ask_8": {
+    "sounds": [
+      "nopcnotrade:voice/ask_8"
+    ]
+  },
+  "ask_9": {
+    "sounds": [
+      "nopcnotrade:voice/ask_9"
+    ]
+  },
+  "answer_1": {
+    "sounds": [
+      "nopcnotrade:voice/answer_1"
+    ]
+  },
+  "answer_2": {
+    "sounds": [
+      "nopcnotrade:voice/answer_2"
+    ]
+  },
+  "answer_3": {
+    "sounds": [
+      "nopcnotrade:voice/answer_3"
+    ]
+  },
+  "answer_4": {
+    "sounds": [
+      "nopcnotrade:voice/answer_4"
+    ]
+  },
+  "answer_5": {
+    "sounds": [
+      "nopcnotrade:voice/answer_5"
+    ]
+  },
+  "answer_6": {
+    "sounds": [
+      "nopcnotrade:voice/answer_6"
+    ]
+  },
+  "answer_7": {
+    "sounds": [
+      "nopcnotrade:voice/answer_7"
+    ]
+  },
+  "answer_8": {
+    "sounds": [
+      "nopcnotrade:voice/answer_8"
+    ]
+  },
+  "answer_9": {
+    "sounds": [
+      "nopcnotrade:voice/answer_9"
+    ]
+  }
 }
