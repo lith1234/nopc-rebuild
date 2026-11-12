@@ -474,13 +474,13 @@ public class Crowd {
     }
 
     private static String snbtString(String value) {
-        return "\"" + value.replace("\\\\", "\\\\\\\\").replace("\"", "\\\\\"")
-                .replace("\\n", "\\\\n").replace("\\r", "\\\\r") + "\"";
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r") + "\"";
     }
 
     private static String textData(String text, String color) {
-        String componentJson = "{\\\"text\\\":" + snbtString(text)
-                + ",\\\"color\\\":" + snbtString(color) + ",\\\"bold\\\":true}";
+        String componentJson = "{\"text\":" + snbtString(text)
+                + ",\"color\":" + snbtString(color) + ",\"bold\":true}";
         return "text:" + snbtString(componentJson)
                 + ",background:0,shadow:1b,alignment:\"center\"";
     }
@@ -520,7 +520,7 @@ public class Crowd {
         switch (key) {
             case "shout" -> { look = "text"; data = textData("!!", "red"); scale = 1.5f; }
             case "trade" -> { look = "text"; data = textData("NO PC!", "red"); scale = 1.0f; }
-            case "recognize" -> { look = "text"; data = textData("\\u266A", "aqua"); scale = 1.8f; }
+            case "recognize" -> { look = "text"; data = textData("♪", "aqua"); scale = 1.8f; }
             case "chant" -> { look = "text"; data = textData("RTX", "green"); scale = 1.2f; }
             case "spot" -> { look = "text"; data = textData("!!", "red"); scale = 1.6f; }
             case "ask" -> { look = "text"; data = textData("?", "aqua"); scale = 1.6f; }
